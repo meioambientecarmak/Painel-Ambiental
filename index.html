@@ -196,6 +196,10 @@ table.data tr:hover td{background:var(--tint-2);}
 .pie-legend span{display:inline-flex;align-items:center;gap:8px;}
 .pie-legend i{width:12px;height:12px;border-radius:3px;display:inline-block;flex-shrink:0;}
 .pie-legend b{color:var(--navy);font-weight:700;}
+.ef-charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:4px;}
+@media (max-width:900px){.ef-charts-grid{grid-template-columns:1fr;}}
+.ef-charts-grid .panel{margin-bottom:0!important;}
+.ef-charts-grid .chart-svg{max-height:180px;}
 
 @media print{
   .topbar,.filters-bar,.btn-ghost,.btn-back{display:none!important;}
@@ -344,6 +348,9 @@ table.data tr:hover td{background:var(--tint-2);}
     <div class="panel"><h3>Custo por transportador</h3><p class="panel-sub">Custo Transportador (R$)</p><div id="bars-fin-transp"></div></div>
   </div>
   <div class="panel" style="margin-top:4px;">
+    <h3>Aglomerado por cliente (destinador)</h3><p class="panel-sub">Receita total por cliente no período</p><div id="bars-fin-cliente"></div>
+  </div>
+  <div class="panel" style="margin-top:14px;">
     <h3>Registros de receita</h3>
     <div class="table-wrap"><table class="data" id="tbl-receitas"><thead></thead><tbody></tbody></table></div>
   </div>
@@ -598,6 +605,7 @@ function renderFinancas(){
   renderHBars('bars-fin-rec-un', sumBy(rec,r=>r.Unidade,r=>r['Receita (R$)']), {fmt:v=>fmtR(v), color:`linear-gradient(90deg,${C_TEAL},${C_TEAL_L})`});
   renderHBars('bars-fin-dest', sumBy(res,r=>r.Destinatário,r=>r['Custo Destinatário (R$)']||0), {fmt:v=>fmtR(v), color:`linear-gradient(90deg,${C_RED},#E07A72)`});
   renderHBars('bars-fin-transp', sumBy(res,r=>r.Transportador,r=>r['Custo Transportador (R$)']||0), {fmt:v=>fmtR(v), color:`linear-gradient(90deg,${C_ORANGE},#E08A5A)`});
+  renderHBars('bars-fin-cliente', sumBy(rec,r=>r.Destinador,r=>r['Receita (R$)']||0), {fmt:v=>fmtR(v), color:`linear-gradient(90deg,${C_TEAL},${C_GOLD})`});
   document.querySelector('#tbl-receitas thead').innerHTML=`<tr><th>Unidade</th><th>Data</th><th>MTR</th><th>CDF</th><th>Resíduo</th><th>Peso</th><th>Destinador</th><th>Receita</th></tr>`;
   const rows=rec.slice().sort((a,b)=>(b.Data||'').localeCompare(a.Data||''));
   document.querySelector('#tbl-receitas tbody').innerHTML=rows.map(r=>`<tr>
@@ -645,7 +653,7 @@ function renderParamYearChart(containerId, param, rows){
   const sistemas=[...new Set(seriesRows.map(r=>r.Sistema))].sort();
   const limInfo=parseLimiteRange(seriesRows[0]);
   const colors=[C_TEAL, C_NAVY, C_GOLD, C_ORANGE, C_RED, C_TEAL_L];
-  const W=560,H=220,pad={t:24,r:16,b:40,l:48};
+  const W=480,H=170,pad={t:22,r:12,b:32,l:40};
   const iw=W-pad.l-pad.r, ih=H-pad.t-pad.b;
   const allVals=seriesRows.map(r=>r.Valor).filter(v=>v!=null);
   let maxY=Math.max(...allVals,1);
@@ -723,16 +731,16 @@ function renderEfluentes(){
   const params=[...new Set(ef.map(r=>r.Parâmetro).filter(Boolean))].sort();
   const host=document.getElementById('ef-param-charts');
   if(!params.length){ host.innerHTML='<div class="empty-state">Sem medições neste sistema no filtro</div>'; return; }
-  host.innerHTML=params.map((p,i)=>{
+  host.innerHTML='<div class="ef-charts-grid">'+params.map((p,i)=>{
     const id='ef-chart-'+i;
     const sample=ef.find(r=>r.Parâmetro===p);
     const lim=sample?`${sample['Operador Limite']||''} ${sample.Limite}`:'';
-    return `<div class="panel" style="margin-bottom:14px;">
+    return `<div class="panel">
       <h3>${esc(p)}</h3>
       <p class="panel-sub">Valores de saída por ano · limite: ${esc(lim)}</p>
       <div id="${id}"></div>
     </div>`;
-  }).join('');
+  }).join('')+'</div>';
   params.forEach((p,i)=>{
     renderParamYearChart('ef-chart-'+i, p, ef.filter(r=>r.Parâmetro===p));
   });
