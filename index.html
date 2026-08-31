@@ -955,11 +955,17 @@ function initFilters(){
 }
 
 
+
 /* ---- Importação da planilha raiz ---- */
 const LS_KEY = 'carmak_painel_data_v1';
 const LS_META = 'carmak_painel_meta_v1';
-let pendingImport = null; // {residuos,receitas,efluentes,docs}
-const DATA_EMBEDDED = JSON.parse(JSON.stringify(DATA)); // cópia dos dados originais do HTML
+let pendingImport = null;
+const DATA_EMBEDDED = {
+  residuos: DATA.residuos.slice(),
+  receitas: DATA.receitas.slice(),
+  efluentes: DATA.efluentes.slice(),
+  docs: DATA.docs.slice()
+};
 
 function openImport(){
   selectedModule = 'import';
@@ -975,7 +981,7 @@ function openImport(){
 function setImportStatus(type, html){
   const el = document.getElementById('import-status');
   if(!el) return;
-  el.className = 'import-status show ' + (type||'info');
+  el.className = 'import-status show ' + (type || 'info');
   el.innerHTML = html;
 }
 
@@ -983,11 +989,17 @@ function refreshImportMeta(){
   const el = document.getElementById('import-meta');
   if(!el) return;
   try{
-    const meta = JSON.parse(localStorage.getItem(LS_META)||'null');
+    const meta = JSON.parse(localStorage.getItem(LS_META) || 'null');
     if(meta && meta.when){
-      el.textContent = 'Última atualização neste navegador: ' + meta.when + (meta.file ? ' · arquivo: ' + meta.file : '');
+      el.textContent = 'Última atualização neste navegador: ' + meta.when + (meta.file ? ' · ' + meta.file : '') +
+        ' · Resíduos: ' + DATA.residuos.length + ' · Receitas: ' + DATA.receitas.length +
+        ' · Efluentes: ' + DATA.efluentes.length + ' · Licenças: ' + DATA.docs.length;
     } else {
-      el.textContent = 'Usando os dados embutidos no HTML (ainda sem importação salva).';
+      el.textContent = 'Dados atuais do painel: Resíduos ' + DATA.residuos.length +
+        ' · Receitas ' + DATA.receitas.length +
+        ' · Efluentes ' + DATA.efluentes.length +
+        ' · Licenças ' + DATA.docs.length +
+        ' (embutidos no HTML ou ainda sem importação salva).';
     }
   }catch(e){
     el.textContent = '';
@@ -996,123 +1008,213 @@ function refreshImportMeta(){
 
 function excelSerialToISO(v){
   if(v == null || v === '') return '';
-  if(typeof v === 'number' && window.XLSX && XLSX.SSF){
-    // Excel serial date
-    const d = XLSX.SSF.parse_date_code(v);
-    if(d){
-      const mm = String(d.m).padStart(2,'0');
-      const dd = String(d.d).padStart(2,'0');
-      return d.y + '-' + mm + '-' + dd;
-    }
+  if(v instanceof Date && !isNaN(v.getTime())){
+    const y = v.getFullYear();
+    const m = String(v.getMonth()+1).padStart(2,'0');
+    const d = String(v.getDate()).padStart(2,'0');
+    return y + '-' + m + '-' + d;
   }
-  if(v instanceof Date && !isNaN(v)){
-    const mm = String(v.getMonth()+1).padStart(2,'0');
-    const dd = String(v.getDate()).padStart(2,'0');
-    return v.getFullYear() + '-' + mm + '-' + dd;
+  if(typeof v === 'number' && isFinite(v)){
+    // Excel serial (days since 1899-12-30)
+    const utc = Date.UTC(1899, 11, 30) + Math.round(v * 86400000);
+    const dt = new Date(utc);
+    const y = dt.getUTCFullYear();
+    const m = String(dt.getUTCMonth()+1).padStart(2,'0');
+    const d = String(dt.getUTCDate()).padStart(2,'0');
+    return y + '-' + m + '-' + d;
   }
   const s = String(v).trim();
-  const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if(m) return m[1]+'-'+m[2]+'-'+m[3];
-  const m2 = s.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if(m2) return m2[3]+'-'+m2[2]+'-'+m2[1];
+  m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if(m) return m[3]+'-'+m[2]+'-'+m[1];
   return s;
 }
 
-function sheetToRows(wb, namePred){
-  const names = wb.SheetNames || [];
-  const name = names.find(n => namePred(String(n)));
-  if(!name) return {sheet:null, rows:[]};
-  const ws = wb.Sheets[name];
-  const rows = XLSX.utils.sheet_to_json(ws, {defval:null, raw:true});
-  return {sheet:name, rows};
-}
-
-function num(v){
-  if(v==null || v==='') return 0;
-  if(typeof v === 'number') return v;
-  const s = String(v).replace(/\s/g,'').replace(/\./g,'').replace(',','.');
-  // if Brazilian format failed, try plain
-  const n = parseFloat(String(v).replace(',','.'));
+function toNum(v){
+  if(v == null || v === '') return 0;
+  if(typeof v === 'number' && isFinite(v)) return v;
+  let s = String(v).trim().replace(/\s/g,'');
+  if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)){
+    s = s.replace(/\./g,'').replace(',','.');
+  } else {
+    s = s.replace(',','.');
+  }
+  const n = parseFloat(s);
   return isNaN(n) ? 0 : n;
 }
 
+function toAno(v, dataISO){
+  if(v != null && v !== ''){
+    const n = parseInt(String(v).replace(/\D/g,''), 10);
+    if(n >= 2000 && n <= 2100) return n;
+  }
+  if(dataISO && /^\d{4}/.test(dataISO)) return parseInt(dataISO.slice(0,4), 10);
+  return null;
+}
+
+function normHeader(h){
+  return String(h || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase().replace(/\s+/g,' ').trim();
+}
+
+function rowGet(row, candidates){
+  // exact key
+  for(const c of candidates){
+    if(row[c] != null && row[c] !== '') return row[c];
+  }
+  // fuzzy by normalized header
+  const keys = Object.keys(row);
+  const wanted = candidates.map(normHeader);
+  for(const k of keys){
+    const nk = normHeader(k);
+    if(wanted.includes(nk)) return row[k];
+  }
+  return null;
+}
+
+function findSheet(wb, tests){
+  const names = wb.SheetNames || [];
+  for(const name of names){
+    const n = normHeader(name);
+    if(tests.some(fn => fn(n, name))) return name;
+  }
+  return null;
+}
+
+function sheetRows(wb, sheetName){
+  if(!sheetName) return [];
+  const ws = wb.Sheets[sheetName];
+  // header row 1
+  return XLSX.utils.sheet_to_json(ws, {defval:null, raw:true, blankrows:false});
+}
+
 function mapResiduos(rows){
-  return rows.filter(r => r.Unidade || r.unidade).map(r => ({
-    'Unidade': r.Unidade || r.unidade || '',
-    'Mês': r['Mês'] || r.Mes || r.mes || '',
-    'Data': excelSerialToISO(r.Data || r.data),
-    'Ano': r.Ano != null ? Number(r.Ano) : (excelSerialToISO(r.Data||'').slice(0,4)|0) || null,
-    'MTR': r.MTR != null ? String(r.MTR) : '',
-    'CDF': r.CDF != null ? r.CDF : null,
-    'Código resíduo': r['Código resíduo'] || r['Codigo residuo'] || '',
-    'Resíduo': r['Resíduo'] || r.Residuo || '',
-    'Peso (ton)': num(r['Peso (ton)'] != null ? r['Peso (ton)'] : r.Peso),
-    'Transportador': r.Transportador || '',
-    'Custo Transportador (R$)': num(r['Custo Transportador (R$)']),
-    'Destinatário': r['Destinatário'] || r.Destinatario || '',
-    'Custo Destinatário (R$)': num(r['Custo Destinatário (R$)'] != null ? r['Custo Destinatário (R$)'] : r['Custo Destinatario (R$)']),
-    'Tecnologia': r.Tecnologia || '',
-    'Total (R$)': num(r['Total (R$)'] != null ? r['Total (R$)'] : r.Total)
-  }));
+  const out = [];
+  for(const r of rows){
+    const unidade = rowGet(r, ['Unidade','unidade']);
+    if(unidade == null || String(unidade).trim() === '') continue;
+    const data = excelSerialToISO(rowGet(r, ['Data','data']));
+    const ano = toAno(rowGet(r, ['Ano','ano']), data);
+    out.push({
+      'Unidade': String(unidade).trim(),
+      'Mês': String(rowGet(r, ['Mês','Mes','mes']) || '').trim(),
+      'Data': data,
+      'Ano': ano,
+      'MTR': rowGet(r, ['MTR','mtr']) != null ? String(rowGet(r, ['MTR','mtr'])) : '',
+      'CDF': rowGet(r, ['CDF','cdf']),
+      'Código resíduo': rowGet(r, ['Código resíduo','Codigo residuo']) || '',
+      'Resíduo': rowGet(r, ['Resíduo','Residuo']) || '',
+      'Peso (ton)': toNum(rowGet(r, ['Peso (ton)','Peso'])),
+      'Transportador': rowGet(r, ['Transportador']) || '',
+      'Custo Transportador (R$)': toNum(rowGet(r, ['Custo Transportador (R$)'])),
+      'Destinatário': rowGet(r, ['Destinatário','Destinatario']) || '',
+      'Custo Destinatário (R$)': toNum(rowGet(r, ['Custo Destinatário (R$)','Custo Destinatario (R$)'])),
+      'Tecnologia': rowGet(r, ['Tecnologia']) || '',
+      'Total (R$)': toNum(rowGet(r, ['Total (R$)','Total']))
+    });
+  }
+  return out;
 }
 
 function mapReceitas(rows){
-  return rows.filter(r => r.Unidade || r.unidade).map(r => ({
-    'Unidade': r.Unidade || r.unidade || '',
-    'Mês': r['Mês'] || r.Mes || '',
-    'Data': excelSerialToISO(r.Data || r.data),
-    'Ano': r.Ano != null ? Number(r.Ano) : null,
-    'MTR': r.MTR != null ? String(r.MTR) : '',
-    'Código resíduo': r['Código resíduo'] || '',
-    'Resíduo': r['Resíduo'] || r.Residuo || '',
-    'Peso (ton)': num(r['Peso (ton)']),
-    'Destinador': r.Destinador || r.Destinatário || '',
-    'Receita (R$)': num(r['Receita (R$)'] != null ? r['Receita (R$)'] : r.Receita)
-  }));
+  const out = [];
+  for(const r of rows){
+    const unidade = rowGet(r, ['Unidade']);
+    if(unidade == null || String(unidade).trim() === '') continue;
+    const data = excelSerialToISO(rowGet(r, ['Data']));
+    out.push({
+      'Unidade': String(unidade).trim(),
+      'Mês': String(rowGet(r, ['Mês','Mes']) || '').trim(),
+      'Data': data,
+      'Ano': toAno(rowGet(r, ['Ano']), data),
+      'MTR': rowGet(r, ['MTR']) != null ? String(rowGet(r, ['MTR'])) : '',
+      'Código resíduo': rowGet(r, ['Código resíduo','Codigo residuo']) || '',
+      'Resíduo': rowGet(r, ['Resíduo','Residuo']) || '',
+      'Peso (ton)': toNum(rowGet(r, ['Peso (ton)'])),
+      'Destinador': rowGet(r, ['Destinador','Destinatário']) || '',
+      'Receita (R$)': toNum(rowGet(r, ['Receita (R$)','Receita']))
+    });
+  }
+  return out;
 }
 
 function mapEfluentes(rows){
-  return rows.filter(r => r.Unidade || r.Parâmetro || r.Parametro).map(r => ({
-    'Unidade': r.Unidade || '',
-    'Sistema': r.Sistema || '',
-    'Parâmetro': r['Parâmetro'] || r.Parametro || '',
-    'Operador Limite': r['Operador Limite'] || r.Operador || '',
-    'Limite': r.Limite != null ? r.Limite : '',
-    'Ano': r.Ano != null ? Number(r.Ano) : null,
-    'Valor': num(r.Valor)
-  }));
+  const out = [];
+  for(const r of rows){
+    const param = rowGet(r, ['Parâmetro','Parametro']);
+    const unidade = rowGet(r, ['Unidade']);
+    if((param == null || String(param).trim()==='') && (unidade == null || String(unidade).trim()==='')) continue;
+    out.push({
+      'Unidade': unidade != null ? String(unidade).trim() : '',
+      'Sistema': rowGet(r, ['Sistema']) || '',
+      'Parâmetro': param != null ? String(param) : '',
+      'Operador Limite': rowGet(r, ['Operador Limite','Operador']) || '',
+      'Limite': rowGet(r, ['Limite']) != null ? rowGet(r, ['Limite']) : '',
+      'Ano': toAno(rowGet(r, ['Ano']), null),
+      'Valor': toNum(rowGet(r, ['Valor']))
+    });
+  }
+  return out;
 }
 
 function mapDocs(rows){
-  return rows.filter(r => r.CNPJ || r.Localidade || r['Tipo de Licença']).map(r => ({
-    'CNPJ': r.CNPJ != null ? String(r.CNPJ) : '',
-    'Localidade': r.Localidade || '',
-    'Endereço': r['Endereço'] || r.Endereco || '',
-    'Tipo de Licença': r['Tipo de Licença'] || r['Tipo de Licenca'] || '',
-    'Nº': r['Nº'] != null ? String(r['Nº']) : (r.N != null ? String(r.N) : ''),
-    'Órgão Emissor': r['Órgão Emissor'] || r['Orgao Emissor'] || '',
-    'Data Solicitação Renovação': excelSerialToISO(r['Data Solicitação Renovação'] || r['Data Solicitacao Renovacao']),
-    'Válida até': excelSerialToISO(r['Válida até'] || r['Valida ate'] || r['Válida Até']),
-    'Status': r.Status || '',
-    'Observações': r['Observações'] || r.Observacoes || ''
-  }));
+  const out = [];
+  for(const r of rows){
+    const cnpj = rowGet(r, ['CNPJ']);
+    const loc = rowGet(r, ['Localidade']);
+    const tipo = rowGet(r, ['Tipo de Licença','Tipo de Licenca']);
+    if((cnpj == null || String(cnpj).trim()==='') && (loc == null || String(loc).trim()==='') && (tipo == null || String(tipo).trim()==='')) continue;
+    out.push({
+      'CNPJ': cnpj != null ? String(cnpj) : '',
+      'Localidade': loc != null ? String(loc) : '',
+      'Endereço': rowGet(r, ['Endereço','Endereco']) || '',
+      'Tipo de Licença': tipo != null ? String(tipo) : '',
+      'Nº': rowGet(r, ['Nº','N','No']) != null ? String(rowGet(r, ['Nº','N','No'])) : '',
+      'Órgão Emissor': rowGet(r, ['Órgão Emissor','Orgao Emissor']) || '',
+      'Data Solicitação Renovação': excelSerialToISO(rowGet(r, ['Data Solicitação Renovação','Data Solicitacao Renovacao'])),
+      'Válida até': excelSerialToISO(rowGet(r, ['Válida até','Valida ate','Válida Até'])),
+      'Status': rowGet(r, ['Status']) || '',
+      'Observações': rowGet(r, ['Observações','Observacoes']) || ''
+    });
+  }
+  return out;
 }
 
 function parseWorkbook(wb){
-  const res = sheetToRows(wb, n => /res[ií]duo/i.test(n));
-  const rec = sheetToRows(wb, n => /receita/i.test(n));
-  const efl = sheetToRows(wb, n => /efluente/i.test(n));
-  const doc = sheetToRows(wb, n => /licen[cç]a|docs?/i.test(n));
-  const residuos = mapResiduos(res.rows);
-  const receitas = mapReceitas(rec.rows);
-  const efluentes = mapEfluentes(efl.rows);
-  const docs = mapDocs(doc.rows);
+  const shRes = findSheet(wb, [
+    (n) => n.includes('residuo'),
+    (n) => n.includes('01 ')
+  ]);
+  const shRec = findSheet(wb, [
+    (n) => n.includes('receita'),
+    (n) => n.includes('02 ')
+  ]);
+  const shEfl = findSheet(wb, [
+    (n) => n.includes('efluente'),
+    (n) => n.includes('03 ')
+  ]);
+  const shDoc = findSheet(wb, [
+    (n) => n.includes('licenc'),
+    (n) => n.includes('04 '),
+    (n) => n === 'docs' || n.includes('docs')
+  ]);
+
+  const residuos = mapResiduos(sheetRows(wb, shRes));
+  const receitas = mapReceitas(sheetRows(wb, shRec));
+  const efluentes = mapEfluentes(sheetRows(wb, shEfl));
+  const docs = mapDocs(sheetRows(wb, shDoc));
+
   if(!residuos.length && !receitas.length && !efluentes.length && !docs.length){
-    throw new Error('Nenhuma aba reconhecida. Use a planilha com abas de Resíduos, Receitas, Efluentes e Licenças.');
+    throw new Error(
+      'Nenhuma linha válida encontrada. Abas no arquivo: ' + (wb.SheetNames||[]).join(', ') +
+      '. Esperado: Resíduos, Receitas, Efluentes, Licenças.'
+    );
   }
   return {
     data: { residuos, receitas, efluentes, docs },
-    sheets: { residuos: res.sheet, receitas: rec.sheet, efluentes: efl.sheet, docs: doc.sheet },
+    sheets: { residuos: shRes, receitas: shRec, efluentes: shEfl, docs: shDoc },
     counts: {
       residuos: residuos.length,
       receitas: receitas.length,
@@ -1125,76 +1227,115 @@ function parseWorkbook(wb){
 function handleImportFile(file){
   if(!file) return;
   if(!window.XLSX){
-    setImportStatus('err', 'Biblioteca de Excel não carregou. Verifique a internet e recarregue a página.');
+    setImportStatus('err', 'Biblioteca de Excel não carregou. Verifique a internet e recarregue a página (F5).');
     return;
   }
-  setImportStatus('info', 'Lendo arquivo <strong>' + esc(file.name) + '</strong>…');
-  document.getElementById('btn-import-apply').disabled = true;
+  setImportStatus('info', 'Lendo <strong>' + esc(file.name) + '</strong>…');
+  const btn = document.getElementById('btn-import-apply');
+  if(btn) btn.disabled = true;
   const reader = new FileReader();
   reader.onload = function(e){
     try{
-      const data = new Uint8Array(e.target.result);
-      const wb = XLSX.read(data, {type:'array', cellDates:true});
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type:'array', cellDates:true });
       const parsed = parseWorkbook(wb);
-      pendingImport = { ...parsed, fileName: file.name };
+      pendingImport = Object.assign({}, parsed, { fileName: file.name });
       const c = parsed.counts;
       setImportStatus('ok',
-        'Arquivo lido com sucesso.<br>' +
-        'Resíduos: <strong>' + c.residuos + '</strong> · ' +
-        'Receitas: <strong>' + c.receitas + '</strong> · ' +
-        'Efluentes: <strong>' + c.efluentes + '</strong> · ' +
-        'Licenças: <strong>' + c.docs + '</strong><br>' +
-        'Clique em <strong>Aplicar dados no painel</strong> para substituir os indicadores.'
+        'Arquivo lido.<br>' +
+        'Abas: Resíduos=<strong>' + esc(parsed.sheets.residuos||'—') + '</strong> (' + c.residuos + '), ' +
+        'Receitas=<strong>' + esc(parsed.sheets.receitas||'—') + '</strong> (' + c.receitas + '), ' +
+        'Efluentes=<strong>' + esc(parsed.sheets.efluentes||'—') + '</strong> (' + c.efluentes + '), ' +
+        'Licenças=<strong>' + esc(parsed.sheets.docs||'—') + '</strong> (' + c.docs + ').<br>' +
+        'Clique em <strong>Aplicar dados no painel</strong>.'
       );
-      document.getElementById('btn-import-apply').disabled = false;
+      if(btn) btn.disabled = false;
     }catch(err){
       pendingImport = null;
-      setImportStatus('err', 'Erro ao ler a planilha: ' + esc(err.message || err));
+      setImportStatus('err', 'Erro ao ler a planilha: ' + esc(err.message || String(err)));
     }
   };
-  reader.onerror = function(){
-    setImportStatus('err', 'Não foi possível ler o arquivo.');
-  };
+  reader.onerror = function(){ setImportStatus('err', 'Não foi possível ler o arquivo.'); };
   reader.readAsArrayBuffer(file);
+}
+
+function clearDashboardFilters(){
+  ['f-ano','f-mes','f-status','f-venc'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.value = '';
+  });
+}
+
+function pushDataToPanel(payload, meta){
+  // Substitui arrays no objeto DATA (referência única usada pelos filtros)
+  DATA.residuos.length = 0;
+  DATA.receitas.length = 0;
+  DATA.efluentes.length = 0;
+  DATA.docs.length = 0;
+  payload.residuos.forEach(r => DATA.residuos.push(r));
+  payload.receitas.forEach(r => DATA.receitas.push(r));
+  payload.efluentes.forEach(r => DATA.efluentes.push(r));
+  payload.docs.forEach(r => DATA.docs.push(r));
+
+  clearDashboardFilters();
+  rebuildYearFilter();
+
+  // Se o usuário já estiver em algum módulo de dados, redesenha
+  if(selectedModule && selectedModule !== 'import' && screen === 'data'){
+    try{ renderData(); }catch(e){ console.warn(e); }
+  }
 }
 
 function applyImportedData(){
   if(!pendingImport || !pendingImport.data){
-    setImportStatus('err', 'Nenhum arquivo processado ainda.');
+    setImportStatus('err', 'Nenhum arquivo processado ainda. Selecione a planilha antes.');
     return;
   }
-  DATA.residuos = pendingImport.data.residuos;
-  DATA.receitas = pendingImport.data.receitas;
-  DATA.efluentes = pendingImport.data.efluentes;
-  DATA.docs = pendingImport.data.docs;
+  const payload = pendingImport.data;
+  pushDataToPanel(payload);
+
+  let saved = true;
   try{
-    localStorage.setItem(LS_KEY, JSON.stringify(DATA));
-    const when = new Date().toLocaleString('pt-BR');
-    localStorage.setItem(LS_META, JSON.stringify({when, file: pendingImport.fileName || ''}));
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      residuos: DATA.residuos,
+      receitas: DATA.receitas,
+      efluentes: DATA.efluentes,
+      docs: DATA.docs
+    }));
+    localStorage.setItem(LS_META, JSON.stringify({
+      when: new Date().toLocaleString('pt-BR'),
+      file: pendingImport.fileName || '',
+      counts: pendingImport.counts
+    }));
   }catch(e){
-    setImportStatus('err', 'Dados aplicados na sessão, mas não foi possível salvar no navegador (armazenamento cheio?).');
-    refreshImportMeta();
-    rebuildYearFilter();
-    return;
+    saved = false;
   }
-  rebuildYearFilter();
-  setImportStatus('ok', 'Dados aplicados e salvos neste navegador. Os módulos já usam a nova base.');
+
+  setImportStatus('ok',
+    'Dados <strong>aplicados no painel</strong>' + (saved ? ' e salvos neste navegador' : ' (não foi possível salvar no navegador — armazenamento cheio)') + '.<br>' +
+    'Agora no painel: Resíduos <strong>' + DATA.residuos.length + '</strong>, ' +
+    'Receitas <strong>' + DATA.receitas.length + '</strong>, ' +
+    'Efluentes <strong>' + DATA.efluentes.length + '</strong>, ' +
+    'Licenças <strong>' + DATA.docs.length + '</strong>.<br>' +
+    'Volte ao <strong>Guia</strong> e abra um módulo (ex.: Resíduos → Todas as unidades). Filtros de ano/mês foram limpos.'
+  );
   refreshImportMeta();
 }
 
 function resetToEmbeddedData(){
-  DATA.residuos = JSON.parse(JSON.stringify(DATA_EMBEDDED.residuos));
-  DATA.receitas = JSON.parse(JSON.stringify(DATA_EMBEDDED.receitas));
-  DATA.efluentes = JSON.parse(JSON.stringify(DATA_EMBEDDED.efluentes));
-  DATA.docs = JSON.parse(JSON.stringify(DATA_EMBEDDED.docs));
+  pushDataToPanel({
+    residuos: DATA_EMBEDDED.residuos.map(r => Object.assign({}, r)),
+    receitas: DATA_EMBEDDED.receitas.map(r => Object.assign({}, r)),
+    efluentes: DATA_EMBEDDED.efluentes.map(r => Object.assign({}, r)),
+    docs: DATA_EMBEDDED.docs.map(r => Object.assign({}, r))
+  });
   try{
     localStorage.removeItem(LS_KEY);
     localStorage.removeItem(LS_META);
   }catch(e){}
   pendingImport = null;
-  document.getElementById('btn-import-apply').disabled = true;
-  rebuildYearFilter();
-  setImportStatus('info', 'Dados originais do HTML restaurados.');
+  const btn = document.getElementById('btn-import-apply');
+  if(btn) btn.disabled = true;
+  setImportStatus('info', 'Dados originais do HTML restaurados (' + DATA.residuos.length + ' resíduos).');
   refreshImportMeta();
 }
 
@@ -1204,10 +1345,14 @@ function loadDataFromStorage(){
     if(!raw) return false;
     const parsed = JSON.parse(raw);
     if(!parsed || !Array.isArray(parsed.residuos)) return false;
-    DATA.residuos = parsed.residuos || [];
-    DATA.receitas = parsed.receitas || [];
-    DATA.efluentes = parsed.efluentes || [];
-    DATA.docs = parsed.docs || [];
+    DATA.residuos.length = 0;
+    DATA.receitas.length = 0;
+    DATA.efluentes.length = 0;
+    DATA.docs.length = 0;
+    (parsed.residuos||[]).forEach(r => DATA.residuos.push(r));
+    (parsed.receitas||[]).forEach(r => DATA.receitas.push(r));
+    (parsed.efluentes||[]).forEach(r => DATA.efluentes.push(r));
+    (parsed.docs||[]).forEach(r => DATA.docs.push(r));
     return true;
   }catch(e){
     return false;
@@ -1217,19 +1362,18 @@ function loadDataFromStorage(){
 function rebuildYearFilter(){
   const sa = document.getElementById('f-ano');
   if(!sa) return;
-  const cur = sa.value;
   const anos = [...new Set([
-    ...DATA.residuos.map(r=>r.Ano),
-    ...DATA.receitas.map(r=>r.Ano),
-    ...DATA.efluentes.map(r=>r.Ano)
-  ].filter(Boolean))].sort();
+    ...DATA.residuos.map(r => r.Ano),
+    ...DATA.receitas.map(r => r.Ano),
+    ...DATA.efluentes.map(r => r.Ano)
+  ].filter(v => v != null && v !== ''))].map(Number).filter(n => !isNaN(n)).sort((a,b)=>a-b);
   sa.innerHTML = '<option value="">Todos</option>';
   anos.forEach(a=>{
-    const o=document.createElement('option');
-    o.value=a; o.textContent=a;
+    const o = document.createElement('option');
+    o.value = a;
+    o.textContent = a;
     sa.appendChild(o);
   });
-  if([...sa.options].some(o=>o.value===cur)) sa.value = cur;
 }
 
 function wireImportUI(){
@@ -1238,13 +1382,15 @@ function wireImportUI(){
   if(!input || !drop) return;
   input.addEventListener('change', function(){
     if(this.files && this.files[0]) handleImportFile(this.files[0]);
+    this.value = '';
   });
-  drop.addEventListener('dragover', function(e){
-    e.preventDefault(); drop.classList.add('drag');
-  });
-  drop.addEventListener('dragleave', function(){ drop.classList.remove('drag'); });
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, function(e){
+    e.preventDefault(); e.stopPropagation(); drop.classList.add('drag');
+  }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, function(e){
+    e.preventDefault(); e.stopPropagation(); drop.classList.remove('drag');
+  }));
   drop.addEventListener('drop', function(e){
-    e.preventDefault(); drop.classList.remove('drag');
     const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
     if(f) handleImportFile(f);
   });
@@ -1252,12 +1398,13 @@ function wireImportUI(){
 
 
 document.addEventListener('DOMContentLoaded', ()=>{
-  loadDataFromStorage();
+  const fromLs = loadDataFromStorage();
   initUnits();
   initFilters();
   wireImportUI();
   updateChrome();
   refreshImportMeta();
+  if(fromLs) console.info('[Carmak] Dados carregados do localStorage', DATA.residuos.length, 'resíduos');
 });
 
 </script>
