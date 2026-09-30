@@ -301,8 +301,14 @@ table.data tr.row-urgent td{background:rgba(192,86,33,.04)}
 .btn-print-report:hover{filter:brightness(1.06)}
 .btn-print-report:disabled{opacity:.55;cursor:wait}
 #print-report-root{
-  position:fixed; left:-9999px; top:0; width:794px; background:#fff; color:#0C1A12;
-  font-family:'Inter',system-ui,sans-serif; padding:28px 32px; z-index:-1; pointer-events:none;
+  position:fixed; left:0; top:0; width:794px; background:#fff; color:#0C1A12;
+  font-family:'Inter',system-ui,sans-serif; padding:28px 32px; z-index:99999;
+  box-sizing:border-box; overflow:visible;
+  /* oculto por padrão; visível só durante a captura do PDF */
+  opacity:0; pointer-events:none; transform:translateX(-120vw);
+}
+#print-report-root.capturing{
+  opacity:1; pointer-events:auto; transform:none;
 }
 #print-report-root .pr-head{
   display:flex; align-items:flex-start; justify-content:space-between; gap:16px;
@@ -2593,52 +2599,161 @@ function kpiCardsFromDom(kpiId){
   }).join('');
   return cards ? `<div class="pr-kpi">${cards}</div>` : '';
 }
+function kpiCardsFromList(list){
+  if(!list || !list.length) return '';
+  return `<div class="pr-kpi">${list.map(c=>
+    `<div class="k"><div class="l">${esc(c.l)}</div><div class="v">${esc(c.v)}</div><div class="s">${esc(c.s||'')}</div></div>`
+  ).join('')}</div>`;
+}
 function cloneInner(id){
   const el = document.getElementById(id);
-  return el ? el.innerHTML : '<div class="empty-state">Sem dados</div>';
+  if(!el) return '';
+  const html = el.innerHTML;
+  if(!html || !html.trim() || /empty-state/i.test(html) && html.length < 80) return '';
+  return html;
+}
+function orEmpty(html, fallback){
+  return (html && html.trim()) ? html : (fallback || '<div class="empty-state">Sem dados no filtro atual</div>');
 }
 function buildResiduosReportBody(){
-  return kpiCardsFromDom('kpi-residuos') + `
+  // Preferir DOM renderizado; se vazio, recalcular a partir dos filtros
+  let kpis = kpiCardsFromDom('kpi-residuos');
+  let barsUn = cloneInner('bars-res-unidade');
+  let barsCu = cloneInner('bars-res-custo-un');
+  let barsTipo = cloneInner('bars-res-tipo');
+  let pieTec = cloneInner('pie-res-tec');
+  let chartMes = cloneInner('chart-res-mes');
+  if(!kpis || !barsUn){
+    const res = filteredResiduos();
+    const peso = res.reduce((s,r)=>s+(+r['Peso (ton)']||0),0);
+    const custo = res.reduce((s,r)=>s+(+r['Total (R$)']||0),0);
+    const tipos = new Set(res.map(r=>r.Resíduo).filter(Boolean)).size;
+    kpis = kpiCardsFromList([
+      {l:'Peso total', v:fmtTon(peso), s: res.length+' movimentos'},
+      {l:'Custo total', v:fmtR(custo), s:'destinação'},
+      {l:'Tipos de resíduo', v:String(tipos), s:'categorias distintas'},
+      {l:'Unidades no filtro', v:String(new Set(res.map(r=>r.Unidade)).size), s:'com movimento'}
+    ]);
+    const byUn = {};
+    res.forEach(r=>{ const k=r.Unidade||'—'; byUn[k]=byUn[k]||{p:0,c:0}; byUn[k].p+=(+r['Peso (ton)']||0); byUn[k].c+=(+r['Total (R$)']||0); });
+    const unArr = Object.entries(byUn).map(([name,v])=>({name,p:v.p,c:v.c})).sort((a,b)=>b.p-a.p);
+    barsUn = barList(unArr.map(x=>({name:x.name, v:x.p, label:fmtTon(x.p)})), 'v');
+    barsCu = barList(unArr.map(x=>({name:x.name, v:x.c, label:fmtR(x.c)})).sort((a,b)=>b.v-a.v), 'v');
+    const byTipo = {};
+    res.forEach(r=>{ const k=r.Resíduo||'—'; byTipo[k]=(byTipo[k]||0)+(+r['Peso (ton)']||0); });
+    barsTipo = barList(Object.entries(byTipo).map(([name,v])=>({name,v,label:fmtTon(v)})).sort((a,b)=>b.v-a.v).slice(0,10), 'v');
+    const byTec = {};
+    res.forEach(r=>{ const k=r.Tecnologia||'—'; byTec[k]=(byTec[k]||0)+(+r['Peso (ton)']||0); });
+    pieTec = pieSvg(Object.entries(byTec).map(([name,v])=>({name,v})).sort((a,b)=>b.v-a.v));
+    const byMes = {}; MES_ORD.forEach(m=>byMes[m]=0);
+    res.forEach(r=>{ if(r.Mês) byMes[r.Mês]=(byMes[r.Mês]||0)+(+r['Peso (ton)']||0); });
+    const mesesP = MES_ORD.filter(m=>byMes[m]>0);
+    chartMes = lineChart(mesesP, mesesP.map(m=>byMes[m]), 'ton');
+  }
+  return kpis + `
     <div class="pr-grid2">
-      <div class="pr-sec"><h3>Volume por unidade</h3><div class="ps">Peso (ton) destinado</div>${cloneInner('bars-res-unidade')}</div>
-      <div class="pr-sec"><h3>Custo por unidade</h3><div class="ps">Total destinação (R$)</div>${cloneInner('bars-res-custo-un')}</div>
+      <div class="pr-sec"><h3>Volume por unidade</h3><div class="ps">Peso (ton) destinado</div>${orEmpty(barsUn)}</div>
+      <div class="pr-sec"><h3>Custo por unidade</h3><div class="ps">Total destinação (R$)</div>${orEmpty(barsCu)}</div>
     </div>
     <div class="pr-grid2">
-      <div class="pr-sec"><h3>Quantidade por tipo de resíduo</h3><div class="ps">Peso (ton) por tipo</div>${cloneInner('bars-res-tipo')}</div>
-      <div class="pr-sec"><h3>Tecnologia de destinação</h3><div class="ps">Participação por tecnologia (%)</div>${cloneInner('pie-res-tec')}</div>
+      <div class="pr-sec"><h3>Quantidade por tipo de resíduo</h3><div class="ps">Peso (ton) por tipo</div>${orEmpty(barsTipo)}</div>
+      <div class="pr-sec"><h3>Tecnologia de destinação</h3><div class="ps">Participação por tecnologia (%)</div>${orEmpty(pieTec)}</div>
     </div>
-    <div class="pr-sec"><h3>Evolução mensal (ton)</h3><div class="ps">Peso destinado por mês</div>${cloneInner('chart-res-mes')}</div>`;
+    <div class="pr-sec"><h3>Evolução mensal (ton)</h3><div class="ps">Peso destinado por mês</div>${orEmpty(chartMes)}</div>`;
 }
 function buildFinancasReportBody(){
-  return kpiCardsFromDom('kpi-financas') + `
+  let kpis = kpiCardsFromDom('kpi-financas');
+  let chartMes = cloneInner('chart-fin-mes');
+  let barsUn = cloneInner('bars-fin-un');
+  if(!kpis || !chartMes){
+    const res = filteredResiduos();
+    const rec = filteredReceitas();
+    const custo = res.reduce((s,r)=>s+(+r['Total (R$)']||0),0);
+    const receita = rec.reduce((s,r)=>s+(+r['Receita (R$)']||0),0);
+    const saldo = receita - custo;
+    kpis = kpiCardsFromList([
+      {l:'Custo destinação', v:fmtR(custo), s: res.length+' movimentos'},
+      {l:'Receita valorização', v:fmtR(receita), s: rec.length+' registros'},
+      {l:'Saldo líquido', v:fmtR(saldo), s:'receita − custo'},
+      {l:'Cobertura', v: custo>0?((receita/custo)*100).toFixed(0)+'%':'—', s:'receita / custo'}
+    ]);
+    const byMesC={}, byMesR={};
+    MES_ORD.forEach(m=>{byMesC[m]=0;byMesR[m]=0});
+    res.forEach(r=>{if(r.Mês) byMesC[r.Mês]+=(+r['Total (R$)']||0)});
+    rec.forEach(r=>{if(r.Mês) byMesR[r.Mês]+=(+r['Receita (R$)']||0)});
+    const mesesP = MES_ORD.filter(m=>byMesC[m]>0||byMesR[m]>0);
+    chartMes = dualBarChart(mesesP, mesesP.map(m=>byMesC[m]), mesesP.map(m=>byMesR[m]));
+    const byUn = {};
+    res.forEach(r=>{const k=r.Unidade||'—'; byUn[k]=byUn[k]||{c:0,r:0}; byUn[k].c+=(+r['Total (R$)']||0)});
+    rec.forEach(r=>{const k=r.Unidade||'—'; byUn[k]=byUn[k]||{c:0,r:0}; byUn[k].r+=(+r['Receita (R$)']||0)});
+    barsUn = barList(Object.entries(byUn).map(([name,v])=>({name,v:v.r-v.c,label:fmtR(v.r-v.c)})).sort((a,b)=>b.v-a.v), 'v');
+  }
+  return kpis + `
     <div class="pr-grid2">
-      <div class="pr-sec"><h3>Custo vs receita por mês</h3><div class="ps">Comparativo mensal (R$)</div>${cloneInner('chart-fin-mes')}</div>
-      <div class="pr-sec"><h3>Resultado por unidade</h3><div class="ps">Receita − custo</div>${cloneInner('bars-fin-un')}</div>
+      <div class="pr-sec"><h3>Custo vs receita por mês</h3><div class="ps">Comparativo mensal (R$)</div>${orEmpty(chartMes)}</div>
+      <div class="pr-sec"><h3>Resultado por unidade</h3><div class="ps">Receita − custo</div>${orEmpty(barsUn)}</div>
     </div>`;
 }
 function buildEfluentesReportBody(){
-  return kpiCardsFromDom('kpi-efluentes') + `
+  let kpis = kpiCardsFromDom('kpi-efluentes');
+  let charts = cloneInner('ef-charts');
+  let params = cloneInner('ef-params');
+  if(!kpis){
+    const rows = filteredEfluentes();
+    const n = rows.length;
+    const nParams = new Set(rows.map(r=>r.Parâmetro).filter(Boolean)).size;
+    let ok=0, fail=0;
+    rows.forEach(r=>{
+      const lim = r.Limite; const val = +r.Valor; const op = String(r['Operador Limite']||'');
+      if(lim==null||lim===''||isNaN(val)) return;
+      const limN = parseFloat(String(lim).replace(',','.'));
+      if(isNaN(limN)) return;
+      if(op.includes('<=') || op.includes('≤') || op==='<='){ if(val<=limN) ok++; else fail++; }
+      else if(op.includes('<') && !op.includes('=')){ if(val<limN) ok++; else fail++; }
+    });
+    kpis = kpiCardsFromList([
+      {l:'Medições', v:String(n), s: selectedEfSystem==='CSAO'?'CSAO':'Fossa / Filtro'},
+      {l:'Parâmetros', v:String(nParams), s:'monitorados'},
+      {l:'Dentro do limite', v:String(ok), s:'leituras ok'},
+      {l:'Acima do limite', v:String(fail), s:'requer atenção'}
+    ]);
+  }
+  return kpis + `
     <div class="pr-sec"><h3>Parâmetros · medições por ano</h3>
       <div class="ps">Barras = valor medido · linha tracejada = limite</div>
-      <div class="ef-charts">${cloneInner('ef-charts')}</div>
+      <div class="ef-charts">${orEmpty(charts)}</div>
     </div>
-    <div class="pr-sec"><h3>Resumo por parâmetro</h3>${cloneInner('ef-params')}</div>`;
+    <div class="pr-sec"><h3>Resumo por parâmetro</h3>${orEmpty(params)}</div>`;
 }
 function buildLicencasReportBody(){
-  return kpiCardsFromDom('kpi-licencas') + `
+  let kpis = kpiCardsFromDom('kpi-licencas');
+  let prio = cloneInner('lic-prio-list');
+  let comp = cloneInner('lic-compliance');
+  let up = cloneInner('lic-upcoming');
+  let matrix = cloneInner('lic-unit-matrix');
+  if(!kpis){
+    // Força re-render da view de licenças e tenta de novo
+    try{ renderLicencas(); }catch(_e){}
+    kpis = kpiCardsFromDom('kpi-licencas');
+    prio = cloneInner('lic-prio-list');
+    comp = cloneInner('lic-compliance');
+    up = cloneInner('lic-upcoming');
+    matrix = cloneInner('lic-unit-matrix');
+  }
+  return (kpis||'') + `
     <div class="pr-grid2">
-      <div class="pr-sec"><h3>Ações críticas e urgentes</h3><div class="ps">Vencidas, inativas e até 30 dias</div>${cloneInner('lic-prio-list')}</div>
+      <div class="pr-sec"><h3>Ações críticas e urgentes</h3><div class="ps">Vencidas, inativas e até 30 dias</div>${orEmpty(prio)}</div>
       <div class="pr-sec">
         <h3>Conformidade da carteira</h3>
         <div class="ps">Taxa de licenças ativas e dentro do prazo</div>
-        ${cloneInner('lic-compliance')}
+        ${orEmpty(comp)}
         <h3 style="margin-top:12px">Próximas renovações (31–90 dias)</h3>
-        ${cloneInner('lic-upcoming')}
+        ${orEmpty(up)}
       </div>
     </div>
     <div class="pr-sec"><h3>Status da carteira por localidade</h3>
       <div class="ps">Distribuição Ativa · Em andamento · Crítico</div>
-      <div class="unit-matrix">${cloneInner('lic-unit-matrix')}</div>
+      <div class="unit-matrix">${orEmpty(matrix)}</div>
     </div>`;
 }
 function buildFullReportHtml(){
@@ -2668,6 +2783,28 @@ function reportFileName(){
   const stamp = d.toISOString().slice(0,10);
   return `Carmak_MeioAmbiente_${mod}_${unit}_${ano}_${mes}_${stamp}.pdf`;
 }
+function collectPrintStyles(){
+  // Copia as regras de #print-report-root para o fallback / iframe
+  const sheets = [...document.styleSheets];
+  let css = '';
+  try{
+    sheets.forEach(ss=>{
+      try{
+        [...(ss.cssRules||[])].forEach(r=>{
+          if(r.cssText && r.cssText.indexOf('#print-report-root')>=0) css += r.cssText + '\n';
+        });
+      }catch(_e){}
+    });
+  }catch(_e){}
+  return css;
+}
+function waitFrames(n){
+  return new Promise(resolve=>{
+    let i = 0;
+    const step = ()=>{ i++; if(i>=n) resolve(); else requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+}
 async function printReport(){
   if(!selectedModule || screen!=='data'){
     alert('Abra um módulo (Resíduos, Finanças, Efluentes ou Licenças) para gerar o relatório.');
@@ -2677,50 +2814,100 @@ async function printReport(){
     const ok = confirm('Nenhum filtro específico de ano, mês ou unidade está selecionado.\nO PDF incluirá todos os dados visíveis na tela.\n\nDeseja continuar?');
     if(!ok) return;
   }
+
   // Garante que a view está renderizada com os filtros atuais
   try{ renderData(); }catch(e){ console.warn(e); }
+  await waitFrames(2);
 
   const root = ensurePrintRoot();
-  root.innerHTML = buildFullReportHtml();
+  const html = buildFullReportHtml();
+  if(!html || html.length < 80){
+    alert('Não há conteúdo para o relatório com os filtros atuais.');
+    return;
+  }
+  root.innerHTML = html;
 
   const btn = document.querySelector('.btn-print-report');
   if(btn){ btn.disabled = true; btn.textContent = 'Gerando PDF…'; }
 
+  // Coloca o relatório na viewport para o html2canvas conseguir capturar
+  root.classList.add('capturing');
+  root.style.cssText = 'position:fixed;left:0;top:0;width:794px;max-width:100%;background:#ffffff;color:#0C1A12;padding:28px 32px;box-sizing:border-box;z-index:99999;opacity:1;pointer-events:none;transform:none;overflow:visible;';
+  // Força reflow
+  void root.offsetHeight;
+
+  await waitFrames(3);
+  await new Promise(r=>setTimeout(r, 250));
+
   const opt = {
-    margin: [10, 10, 12, 10],
+    margin: [8, 8, 10, 8],
     filename: reportFileName(),
-    image: { type: 'jpeg', quality: 0.96 },
+    image: { type: 'jpeg', quality: 0.95 },
     html2canvas: {
       scale: 2,
       useCORS: true,
+      allowTaint: true,
       logging: false,
       backgroundColor: '#ffffff',
-      windowWidth: 794
+      width: root.scrollWidth || 794,
+      height: root.scrollHeight || root.offsetHeight,
+      windowWidth: 794,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0
     },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+    pagebreak: { mode: ['css', 'legacy'] }
   };
 
   try{
     if(typeof html2pdf === 'undefined'){
-      // Fallback: janela de impressão (usuário pode salvar como PDF)
       const w = window.open('', '_blank', 'noopener,noreferrer');
       if(!w){ alert('Permita pop-ups para gerar o relatório.'); return; }
+      const extraCss = collectPrintStyles();
       w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(reportFileName())}</title>
         <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
         <style>
-          body{font-family:Inter,system-ui,sans-serif;margin:0;padding:24px;color:#0C1A12}
-          ${document.getElementById('print-report-root') ? '' : ''}
+          body{font-family:Inter,system-ui,sans-serif;margin:0;padding:24px;color:#0C1A12;background:#fff}
+          #print-report-root{position:static!important;opacity:1!important;transform:none!important;width:100%!important;left:auto!important;top:auto!important}
+          ${extraCss}
         </style>
-      </head><body>${root.innerHTML}<script>setTimeout(function(){window.print()},400)<\\/script></body></html>`);
+      </head><body><div id="print-report-root" class="capturing">${html}</div>
+      <script>setTimeout(function(){window.print()},500)<\\/script></body></html>`);
       w.document.close();
       return;
     }
+
+    // Captura a partir do elemento já na viewport
     await html2pdf().set(opt).from(root).save();
   }catch(e){
-    console.error(e);
-    alert('Falha ao gerar o PDF: '+(e.message||e));
+    console.error('[MA] PDF error', e);
+    // Fallback robusto: abrir janela de impressão com o HTML completo
+    try{
+      const w = window.open('', '_blank', 'noopener,noreferrer');
+      if(w){
+        const extraCss = collectPrintStyles();
+        w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(reportFileName())}</title>
+          <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+          <style>
+            body{font-family:Inter,system-ui,sans-serif;margin:0;padding:24px;color:#0C1A12;background:#fff}
+            #print-report-root{position:static!important;opacity:1!important;transform:none!important;width:100%!important}
+            ${extraCss}
+          </style>
+        </head><body><div id="print-report-root" class="capturing">${html}</div>
+        <script>setTimeout(function(){window.print()},500)<\\/script></body></html>`);
+        w.document.close();
+      } else {
+        alert('Falha ao gerar o PDF: '+(e.message||e));
+      }
+    }catch(e2){
+      alert('Falha ao gerar o PDF: '+(e.message||e));
+    }
   }finally{
+    root.classList.remove('capturing');
+    root.style.cssText = '';
+    root.innerHTML = '';
     if(btn){ btn.disabled = false; btn.textContent = 'Imprimir Relatório'; }
   }
 }
