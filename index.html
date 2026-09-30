@@ -292,6 +292,99 @@ table.data tr.row-urgent td{background:rgba(192,86,33,.04)}
   background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
   padding:12px 16px; box-shadow:var(--shadow);
 }
+.btn-print-report{
+  appearance:none; border:none; border-radius:10px; padding:10px 16px;
+  font-size:13px; font-weight:700; cursor:pointer; margin-top:14px; margin-left:auto;
+  background:linear-gradient(135deg,var(--navy),var(--teal)); color:#fff;
+  box-shadow:0 4px 12px rgba(11,46,31,.18);
+}
+.btn-print-report:hover{filter:brightness(1.06)}
+.btn-print-report:disabled{opacity:.55;cursor:wait}
+#print-report-root{
+  position:fixed; left:-9999px; top:0; width:794px; background:#fff; color:#0C1A12;
+  font-family:'Inter',system-ui,sans-serif; padding:28px 32px; z-index:-1; pointer-events:none;
+}
+#print-report-root .pr-head{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:16px;
+  border-bottom:3px solid #C9A227; padding-bottom:14px; margin-bottom:18px;
+}
+#print-report-root .pr-brand{display:flex;align-items:center;gap:12px}
+#print-report-root .pr-mark{
+  width:42px;height:42px;border-radius:12px;
+  background:linear-gradient(145deg,#C9A227,#E8C547);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;color:#0B2E1F;
+}
+#print-report-root .pr-title{font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:#0B2E1F;margin:0}
+#print-report-root .pr-sub{font-size:12px;color:#5C6E60;margin-top:2px}
+#print-report-root .pr-meta{text-align:right;font-size:11px;color:#3D4F42;line-height:1.45}
+#print-report-root .pr-meta b{color:#0B2E1F}
+#print-report-root .pr-filters{
+  display:grid;grid-template-columns:repeat(2,1fr);gap:8px 16px;
+  background:#F7F9F5;border:1px solid #D0D9D0;border-radius:12px;
+  padding:12px 14px;margin-bottom:18px;font-size:12px;
+}
+#print-report-root .pr-filters div span{color:#5C6E60;font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;display:block}
+#print-report-root .pr-filters div b{color:#0B2E1F;font-weight:700}
+#print-report-root .pr-kpi{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;
+}
+#print-report-root .pr-kpi .k{
+  border:1px solid #D0D9D0;border-radius:12px;padding:12px 14px;background:#fff;
+  border-left:4px solid #1A4F36;
+}
+#print-report-root .pr-kpi .k .l{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#5C6E60;font-weight:700}
+#print-report-root .pr-kpi .k .v{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:#0B2E1F;margin-top:4px}
+#print-report-root .pr-kpi .k .s{font-size:11px;color:#5C6E60;margin-top:2px}
+#print-report-root .pr-sec{margin-bottom:14px;page-break-inside:avoid;break-inside:avoid}
+#print-report-root .pr-sec h3{
+  font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:#0B2E1F;
+  margin:0 0 4px;border-bottom:1px solid #E8EEE8;padding-bottom:6px;
+}
+#print-report-root .pr-sec .ps{font-size:11px;color:#5C6E60;margin-bottom:8px}
+#print-report-root .pr-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+#print-report-root .pr-foot{
+  margin-top:20px;padding-top:10px;border-top:1px solid #D0D9D0;
+  font-size:10px;color:#5C6E60;display:flex;justify-content:space-between;
+}
+#print-report-root .bar-row{display:flex;align-items:center;gap:8px;margin:5px 0}
+#print-report-root .bar-row .name{width:110px;flex-shrink:0;font-size:10.5px;color:#3D4F42;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#print-report-root .bar-track{flex:1;background:#E8EEE8;border-radius:5px;height:10px;overflow:hidden}
+#print-report-root .bar-fill{height:100%;border-radius:5px;background:linear-gradient(90deg,#123D2A,#40916C)}
+#print-report-root .bar-row .num{width:70px;font-size:10.5px;font-weight:700;color:#0B2E1F;text-align:right}
+#print-report-root .pie-wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+#print-report-root .pie-legend{display:flex;flex-direction:column;gap:4px;font-size:11px;color:#3D4F42}
+#print-report-root .pie-legend span{display:inline-flex;align-items:center;gap:6px}
+#print-report-root .pie-legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+#print-report-root .pie-legend b{color:#0B2E1F}
+#print-report-root .dual-bars{display:flex;flex-direction:column;gap:8px}
+#print-report-root .dual-row{display:grid;grid-template-columns:70px 1fr 68px;gap:6px;align-items:center}
+#print-report-root .dual-row .dn{font-size:10px;color:#3D4F42;text-align:right;font-weight:600}
+#print-report-root .dual-tracks{display:flex;flex-direction:column;gap:2px}
+#print-report-root .dual-tracks .dt{height:8px;border-radius:3px;background:#E8EEE8;overflow:hidden}
+#print-report-root .dual-tracks .df{height:100%;border-radius:3px}
+#print-report-root .dual-tracks .df.custo{background:linear-gradient(90deg,#7A2E28,#B91C1C)}
+#print-report-root .dual-tracks .df.rec{background:linear-gradient(90deg,#123D2A,#40916C)}
+#print-report-root .dual-row .dv{font-size:9.5px;color:#5C6E60;line-height:1.25}
+#print-report-root .ef-charts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#print-report-root .ef-chart-card{border:1px solid #D0D9D0;border-radius:12px;padding:10px;background:#fff}
+#print-report-root .ef-chart-card h4{font-size:12px;font-weight:700;color:#0B2E1F;margin:0 0 2px;font-family:'Space Grotesk',sans-serif}
+#print-report-root .ef-chart-card .sub{font-size:10px;color:#5C6E60;margin-bottom:6px}
+#print-report-root .prio-item{display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:8px;margin-bottom:6px;border:1px solid #E8EEE8;font-size:11px}
+#print-report-root .prio-item.crit{background:#FEE2E2;border-color:#fecaca}
+#print-report-root .prio-item.urgent{background:#FFE8D9;border-color:#fed7aa}
+#print-report-root .prio-item.warn{background:#FFF4D6;border-color:#fde68a}
+#print-report-root .unit-matrix{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#print-report-root .um-card{background:#F7F9F5;border:1px solid #D0D9D0;border-radius:10px;padding:10px}
+#print-report-root .um-name{font-size:11px;font-weight:700;color:#0B2E1F;margin-bottom:6px}
+#print-report-root .um-bar{display:flex;height:5px;border-radius:3px;overflow:hidden;background:#D0D9D0;margin-bottom:6px}
+#print-report-root .um-meta{display:flex;justify-content:space-between;font-size:9.5px;color:#5C6E60;font-weight:600}
+#print-report-root .comp-wrap{display:flex;align-items:center;gap:16px}
+#print-report-root .comp-stats{font-size:12px;color:#3D4F42}
+#print-report-root .empty-state{text-align:center;padding:16px;color:#5C6E60;font-size:12px}
+#print-report-root .legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px;font-size:10px;color:#3D4F42}
+#print-report-root .legend span{display:inline-flex;align-items:center;gap:4px}
+#print-report-root .legend i{width:9px;height:9px;border-radius:2px;display:inline-block}
 .f-group{display:flex;flex-direction:column;gap:4px}
 .f-group label{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
 .f-group select{
@@ -521,6 +614,7 @@ body.on-guia{
 }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body class="on-guia">
 
@@ -1213,21 +1307,25 @@ function renderFilters(){
     h += `</select></div>`;
     return h;
   };
+  const printBtn = `<button type="button" class="btn-print-report" onclick="printReport()">Imprimir Relatório</button>`;
   if(selectedModule==='residuos'){
     document.getElementById('filt-residuos').innerHTML = commonAnoMes('fr') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openResModal(null)">+ Novo resíduo</button>
-       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadResiduosFromCloud().then(()=>{renderFilters();renderResiduos();})">↻ Atualizar</button>`;
+       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadResiduosFromCloud().then(()=>{renderFilters();renderResiduos();})">↻ Atualizar</button>` +
+      printBtn;
     bindFilter('fr-ano','fr-mes');
   } else if(selectedModule==='financas'){
     document.getElementById('filt-financas').innerHTML = commonAnoMes('ff') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openRecModal(null)">+ Nova receita</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="openResModal(null)">+ Novo custo (resíduo)</button>
-       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="Promise.all([loadResiduosFromCloud(),loadReceitasFromCloud()]).then(()=>{renderFilters();renderFinancas();})">↻ Atualizar</button>`;
+       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="Promise.all([loadResiduosFromCloud(),loadReceitasFromCloud()]).then(()=>{renderFilters();renderFinancas();})">↻ Atualizar</button>` +
+      printBtn;
     bindFilter('ff-ano','ff-mes');
   } else if(selectedModule==='efluentes'){
     document.getElementById('filt-efluentes').innerHTML = commonAnoMes('fe') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openEfModal(null)">+ Nova medição</button>
-       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadEfluentesFromCloud().then(()=>{renderFilters();renderEfluentes();})">↻ Atualizar</button>`;
+       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadEfluentesFromCloud().then(()=>{renderFilters();renderEfluentes();})">↻ Atualizar</button>` +
+      printBtn;
     bindFilter('fe-ano','fe-mes');
   } else if(selectedModule==='licencas'){
     document.getElementById('filt-licencas').innerHTML = `
@@ -1250,7 +1348,7 @@ function renderFilters(){
       </div>
       <button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openLicModal(null)">+ Nova licença</button>
       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="refreshLicencasAndRender()">↻ Atualizar</button>
-      <span class="sync-chip" id="lic-sync-chip"></span>`;
+      <span class="sync-chip" id="lic-sync-chip"></span>` + printBtn;
     ['fl-status','fl-venc'].forEach(id=>{
       const el = document.getElementById(id);
       if(!el) return;
@@ -2427,6 +2525,204 @@ async function refreshLicencasAndRender(){
       : ('Offline / embutido' + (res && res.error ? ' · ' + res.error : ''));
   }
   return res;
+}
+
+/* ---- Impressão / PDF do relatório (KPIs + gráficos, sem tabelas) ---- */
+function hasSpecificFilters(){
+  if(filters.ano) return true;
+  if(filters.mes) return true;
+  if(selectedUnit) return true;
+  if(selectedModule==='licencas' && (filters.status || filters.venc)) return true;
+  return false;
+}
+function reportFilterLabels(){
+  const unitLabel = selectedUnit || 'Todas as unidades';
+  const anoLabel = filters.ano || 'Todos';
+  const mesLabel = filters.mes || 'Todos';
+  const items = [
+    {l:'Módulo', v: MODULE_LABELS[selectedModule] || '—'},
+    {l:'Unidade / Localidade', v: unitLabel},
+    {l:'Ano', v: String(anoLabel)},
+    {l:'Mês', v: String(mesLabel)}
+  ];
+  if(selectedModule==='efluentes'){
+    items.push({l:'Sistema', v: selectedEfSystem==='CSAO' ? 'CSAO' : 'Fossa / Filtro'});
+  }
+  if(selectedModule==='licencas'){
+    items.push({l:'Status', v: filters.status || 'Todos'});
+    const vencMap = {vencida:'Vencidas','30':'Até 30 dias','90':'31–90 dias',ok:'Acima de 90 dias / sem prazo'};
+    items.push({l:'Prazo', v: filters.venc ? (vencMap[filters.venc]||filters.venc) : 'Todos'});
+  }
+  return items;
+}
+function reportHeaderHtml(){
+  const now = new Date();
+  const when = now.toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'});
+  const user = (currentUser && currentUser.email) ? currentUser.email : '—';
+  const mod = MODULE_LABELS[selectedModule] || '';
+  const filtersHtml = reportFilterLabels().map(f=>
+    `<div><span>${esc(f.l)}</span><b>${esc(f.v)}</b></div>`
+  ).join('');
+  return `
+    <div class="pr-head">
+      <div class="pr-brand">
+        <div class="pr-mark">CA</div>
+        <div>
+          <div class="pr-title">Meio Ambiente · Carmak</div>
+          <div class="pr-sub">Relatório gerencial · ${esc(mod)}</div>
+        </div>
+      </div>
+      <div class="pr-meta">
+        <div>Impresso em <b>${esc(when)}</b></div>
+        <div>Usuário: <b>${esc(user)}</b></div>
+      </div>
+    </div>
+    <div class="pr-filters">${filtersHtml}</div>`;
+}
+function reportFooterHtml(){
+  return `<div class="pr-foot"><span>Meio Ambiente · Carmak · Gestão Ambiental</span><span>Documento gerado automaticamente pelo painel</span></div>`;
+}
+function kpiCardsFromDom(kpiId){
+  const root = document.getElementById(kpiId);
+  if(!root) return '';
+  const cards = [...root.querySelectorAll('.kpi')].map(k=>{
+    const lbl = (k.querySelector('.lbl')||{}).textContent || '';
+    const val = (k.querySelector('.val')||{}).textContent || '';
+    const sub = (k.querySelector('.sub')||{}).textContent || '';
+    return `<div class="k"><div class="l">${esc(lbl)}</div><div class="v">${esc(val)}</div><div class="s">${esc(sub)}</div></div>`;
+  }).join('');
+  return cards ? `<div class="pr-kpi">${cards}</div>` : '';
+}
+function cloneInner(id){
+  const el = document.getElementById(id);
+  return el ? el.innerHTML : '<div class="empty-state">Sem dados</div>';
+}
+function buildResiduosReportBody(){
+  return kpiCardsFromDom('kpi-residuos') + `
+    <div class="pr-grid2">
+      <div class="pr-sec"><h3>Volume por unidade</h3><div class="ps">Peso (ton) destinado</div>${cloneInner('bars-res-unidade')}</div>
+      <div class="pr-sec"><h3>Custo por unidade</h3><div class="ps">Total destinação (R$)</div>${cloneInner('bars-res-custo-un')}</div>
+    </div>
+    <div class="pr-grid2">
+      <div class="pr-sec"><h3>Quantidade por tipo de resíduo</h3><div class="ps">Peso (ton) por tipo</div>${cloneInner('bars-res-tipo')}</div>
+      <div class="pr-sec"><h3>Tecnologia de destinação</h3><div class="ps">Participação por tecnologia (%)</div>${cloneInner('pie-res-tec')}</div>
+    </div>
+    <div class="pr-sec"><h3>Evolução mensal (ton)</h3><div class="ps">Peso destinado por mês</div>${cloneInner('chart-res-mes')}</div>`;
+}
+function buildFinancasReportBody(){
+  return kpiCardsFromDom('kpi-financas') + `
+    <div class="pr-grid2">
+      <div class="pr-sec"><h3>Custo vs receita por mês</h3><div class="ps">Comparativo mensal (R$)</div>${cloneInner('chart-fin-mes')}</div>
+      <div class="pr-sec"><h3>Resultado por unidade</h3><div class="ps">Receita − custo</div>${cloneInner('bars-fin-un')}</div>
+    </div>`;
+}
+function buildEfluentesReportBody(){
+  return kpiCardsFromDom('kpi-efluentes') + `
+    <div class="pr-sec"><h3>Parâmetros · medições por ano</h3>
+      <div class="ps">Barras = valor medido · linha tracejada = limite</div>
+      <div class="ef-charts">${cloneInner('ef-charts')}</div>
+    </div>
+    <div class="pr-sec"><h3>Resumo por parâmetro</h3>${cloneInner('ef-params')}</div>`;
+}
+function buildLicencasReportBody(){
+  return kpiCardsFromDom('kpi-licencas') + `
+    <div class="pr-grid2">
+      <div class="pr-sec"><h3>Ações críticas e urgentes</h3><div class="ps">Vencidas, inativas e até 30 dias</div>${cloneInner('lic-prio-list')}</div>
+      <div class="pr-sec">
+        <h3>Conformidade da carteira</h3>
+        <div class="ps">Taxa de licenças ativas e dentro do prazo</div>
+        ${cloneInner('lic-compliance')}
+        <h3 style="margin-top:12px">Próximas renovações (31–90 dias)</h3>
+        ${cloneInner('lic-upcoming')}
+      </div>
+    </div>
+    <div class="pr-sec"><h3>Status da carteira por localidade</h3>
+      <div class="ps">Distribuição Ativa · Em andamento · Crítico</div>
+      <div class="unit-matrix">${cloneInner('lic-unit-matrix')}</div>
+    </div>`;
+}
+function buildFullReportHtml(){
+  let body = '';
+  if(selectedModule==='residuos') body = buildResiduosReportBody();
+  else if(selectedModule==='financas') body = buildFinancasReportBody();
+  else if(selectedModule==='efluentes') body = buildEfluentesReportBody();
+  else if(selectedModule==='licencas') body = buildLicencasReportBody();
+  else body = '<div class="empty-state">Selecione um módulo</div>';
+  return reportHeaderHtml() + body + reportFooterHtml();
+}
+function ensurePrintRoot(){
+  let root = document.getElementById('print-report-root');
+  if(!root){
+    root = document.createElement('div');
+    root.id = 'print-report-root';
+    document.body.appendChild(root);
+  }
+  return root;
+}
+function reportFileName(){
+  const mod = selectedModule || 'relatorio';
+  const unit = (selectedUnit || 'todas').replace(/[^\wÀ-ÿ\-]+/g,'_').slice(0,40);
+  const ano = filters.ano || 'todos';
+  const mes = filters.mes ? String(filters.mes).slice(0,3) : 'todos';
+  const d = new Date();
+  const stamp = d.toISOString().slice(0,10);
+  return `Carmak_MeioAmbiente_${mod}_${unit}_${ano}_${mes}_${stamp}.pdf`;
+}
+async function printReport(){
+  if(!selectedModule || screen!=='data'){
+    alert('Abra um módulo (Resíduos, Finanças, Efluentes ou Licenças) para gerar o relatório.');
+    return;
+  }
+  if(!hasSpecificFilters()){
+    const ok = confirm('Nenhum filtro específico de ano, mês ou unidade está selecionado.\nO PDF incluirá todos os dados visíveis na tela.\n\nDeseja continuar?');
+    if(!ok) return;
+  }
+  // Garante que a view está renderizada com os filtros atuais
+  try{ renderData(); }catch(e){ console.warn(e); }
+
+  const root = ensurePrintRoot();
+  root.innerHTML = buildFullReportHtml();
+
+  const btn = document.querySelector('.btn-print-report');
+  if(btn){ btn.disabled = true; btn.textContent = 'Gerando PDF…'; }
+
+  const opt = {
+    margin: [10, 10, 12, 10],
+    filename: reportFileName(),
+    image: { type: 'jpeg', quality: 0.96 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      windowWidth: 794
+    },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+  };
+
+  try{
+    if(typeof html2pdf === 'undefined'){
+      // Fallback: janela de impressão (usuário pode salvar como PDF)
+      const w = window.open('', '_blank', 'noopener,noreferrer');
+      if(!w){ alert('Permita pop-ups para gerar o relatório.'); return; }
+      w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${esc(reportFileName())}</title>
+        <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <style>
+          body{font-family:Inter,system-ui,sans-serif;margin:0;padding:24px;color:#0C1A12}
+          ${document.getElementById('print-report-root') ? '' : ''}
+        </style>
+      </head><body>${root.innerHTML}<script>setTimeout(function(){window.print()},400)<\\/script></body></html>`);
+      w.document.close();
+      return;
+    }
+    await html2pdf().set(opt).from(root).save();
+  }catch(e){
+    console.error(e);
+    alert('Falha ao gerar o PDF: '+(e.message||e));
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = 'Imprimir Relatório'; }
+  }
 }
 
 /* Boot — Supabase Auth */
