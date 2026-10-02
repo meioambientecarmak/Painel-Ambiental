@@ -372,6 +372,24 @@ table.data tr.row-urgent td{background:rgba(192,86,33,.04)}
 #print-report-root .pr-legend-hl i{
   width:10px;height:10px;border-radius:2px;background:#C9A227;display:inline-block;
 }
+#print-report-root .pr-insight{
+  margin-bottom:12px;padding:12px 14px;border-radius:12px;
+  background:linear-gradient(135deg,#F7F9F5 0%,#fff 100%);
+  border:1px solid #C9A227;border-left:4px solid #C9A227;
+}
+#print-report-root .pr-insight-title{
+  font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;color:#0B2E1F;margin-bottom:6px;
+}
+#print-report-root .pr-insight-body{font-size:11.5px;color:#0C1A12;line-height:1.45;margin-bottom:6px}
+#print-report-root .pr-insight-cmp{font-size:11px;color:#3D4F42;line-height:1.45;margin-top:3px}
+#print-report-root .pr-head{border-bottom:2px solid #C9A227}
+#print-report-root .pr-kpi .k{
+  background:#fff;border-color:#D0D9D0;
+}
+#print-report-root .pr-sec{
+  background:#fff;border-color:#E0E8E0;
+  box-shadow:0 1px 3px rgba(11,46,31,.04);
+}
 #print-report-root .bar-row{display:flex;align-items:center;gap:8px;margin:5px 0}
 #print-report-root .bar-row .name{width:110px;flex-shrink:0;font-size:10.5px;color:#3D4F42;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #print-report-root .bar-track{flex:1;background:#E8EEE8;border-radius:5px;height:10px;overflow:hidden}
@@ -2653,7 +2671,9 @@ function reportHeaderHtml(){
     licencas: 'Relatório gerencial de licenças e alvarás · uso interno'
   };
   const subtitle = subtitleMap[selectedModule] || (`Relatório gerencial · ${mod}`);
-  return `
+  // Relatório mensal de resíduos: sem logo CA / marca / subtítulo
+  const isResMes = selectedModule === 'residuos' && !!filters.mes;
+  const brand = isResMes ? '' : `
     <div class="pr-head">
       <div class="pr-brand">
         <div class="pr-mark">CA</div>
@@ -2662,7 +2682,8 @@ function reportHeaderHtml(){
           <div class="pr-sub">${esc(subtitle)}</div>
         </div>
       </div>
-    </div>
+    </div>`;
+  return `${brand}
     <div class="pr-report-title">${esc(reportPeriodTitle())}</div>`;
 }
 function reportFooterHtml(){
@@ -2703,7 +2724,6 @@ function orEmpty(html, fallback){
   return (html && html.trim()) ? html : (fallback || '<div class="empty-state">Sem dados no filtro atual</div>');
 }
 function buildResiduosReportBody(){
-  // Dados do filtro completo (KPIs, tipo, tecnologia)
   const res = filteredResiduos();
   const peso = res.reduce((s,r)=>s+(+r['Peso (ton)']||0),0);
   const custo = res.reduce((s,r)=>s+(+r['Total (R$)']||0),0);
@@ -2715,56 +2735,16 @@ function buildResiduosReportBody(){
       <div class="k teal"><div class="l">Tipos de resíduo</div><div class="v">${tipos}</div><div class="s">categorias distintas</div></div>
     </div>`;
 
-  // Comparativo por unidade: só quando mês=Todos OU unidade=Todas
-  const showByUnit = !selectedUnit || !filters.mes;
-  let unitBlock = '';
-  if(showByUnit){
-    const byUn = {};
-    res.forEach(r=>{
-      const k=r.Unidade||'—';
-      byUn[k]=byUn[k]||{p:0,c:0};
-      byUn[k].p+=(+r['Peso (ton)']||0);
-      byUn[k].c+=(+r['Total (R$)']||0);
-    });
-    const unArr = Object.entries(byUn).map(([name,v])=>({name,p:v.p,c:v.c})).sort((a,b)=>b.p-a.p);
-    const barsUn = barList(unArr.map(x=>({name:x.name, v:x.p, label:fmtTon(x.p)})), 'v');
-    const barsCu = barList(unArr.map(x=>({name:x.name, v:x.c, label:fmtR(x.c)})).sort((a,b)=>b.v-a.v), 'v');
-    unitBlock = `<div class="pr-grid2">
-      <div class="pr-sec"><h3>Volume por unidade</h3><div class="ps">Peso (ton) destinado no período</div>${orEmpty(barsUn)}</div>
-      <div class="pr-sec"><h3>Custo por unidade</h3><div class="ps">Total destinação (R$)</div>${orEmpty(barsCu)}</div>
-    </div>`;
-  }
-
-  // Tipo + tecnologia (sempre)
+  // Tipo + tecnologia
   const byTipo = {};
   res.forEach(r=>{ const k=r.Resíduo||'—'; byTipo[k]=(byTipo[k]||0)+(+r['Peso (ton)']||0); });
-  const barsTipo = barList(Object.entries(byTipo).map(([name,v])=>({name,v,label:fmtTon(v)})).sort((a,b)=>b.v-a.v).slice(0,10), 'v');
+  const tipoArr = Object.entries(byTipo).map(([name,v])=>({name,v})).sort((a,b)=>b.v-a.v);
+  const barsTipo = barList(tipoArr.map(x=>({name:x.name, v:x.v, label:fmtTon(x.v)})).slice(0,10), 'v');
   const byTec = {};
   res.forEach(r=>{ const k=r.Tecnologia||'—'; byTec[k]=(byTec[k]||0)+(+r['Peso (ton)']||0); });
   const pieTec = pieSvg(Object.entries(byTec).map(([name,v])=>({name,v})).sort((a,b)=>b.v-a.v));
 
-  // Evolução: SEMPRE 12 meses do ano (e unidade) — sem filtro de mês nos dados do gráfico
-  const yearRows = (DATA.residuos||[]).filter(r=>{
-    if(!matchUnit(r.Unidade)) return false;
-    if(filters.ano && String(r.Ano)!==String(filters.ano)) return false;
-    return true;
-  });
-  const byMes = {};
-  MES_ORD.forEach(m=>byMes[m]=0);
-  yearRows.forEach(r=>{
-    if(r.Mês) byMes[r.Mês]=(byMes[r.Mês]||0)+(+r['Peso (ton)']||0);
-  });
-  // Destaque: mês filtrado, ou mês atual do calendário se filtro = Todos
-  let highlightMes = filters.mes || null;
-  if(!highlightMes){
-    highlightMes = MES_ORD[new Date().getMonth()] || null;
-  }
-  const chartMes = lineChartYearHighlight(byMes, highlightMes, 'ton');
-  const hlNote = highlightMes
-    ? `<span class="pr-legend-hl"><i></i> Destaque: ${esc(highlightMes)}</span>`
-    : '';
-
-  // Somatório por destinador (peso por destinatário)
+  // Somatório por destinador
   const byDest = {};
   res.forEach(r=>{
     const k = (r.Destinatário || r.Destinatario || '—').trim() || '—';
@@ -2775,7 +2755,72 @@ function buildResiduosReportBody(){
     'v'
   );
 
-  return kpis + unitBlock + `
+  // Evolução 12 meses (ano + unidade); destaque só se mês filtrado
+  const yearRows = (DATA.residuos||[]).filter(r=>{
+    if(!matchUnit(r.Unidade)) return false;
+    if(filters.ano && String(r.Ano)!==String(filters.ano)) return false;
+    return true;
+  });
+  const byMes = {};
+  MES_ORD.forEach(m=>byMes[m]=0);
+  yearRows.forEach(r=>{
+    if(r.Mês) byMes[r.Mês]=(byMes[r.Mês]||0)+(+r['Peso (ton)']||0);
+  });
+  const highlightMes = filters.mes || null; // Todos = sem grifo
+  const chartMes = lineChartYearHighlight(byMes, highlightMes, 'ton');
+  const hlNote = highlightMes
+    ? `<span class="pr-legend-hl"><i></i> Destaque: ${esc(highlightMes)}</span>`
+    : '';
+
+  // Insights quando mês selecionado: maior saída + comparativo meses anteriores
+  let insightBlock = '';
+  if(filters.mes){
+    const top = tipoArr[0];
+    const topTxt = top
+      ? `<b>${esc(top.name)}</b> foi o resíduo com maior saída (${esc(fmtTon(top.v))}).`
+      : 'Sem movimentação de resíduos no mês.';
+    const idx = MES_ORD.indexOf(filters.mes);
+    let cmpHtml = '';
+    if(idx > 0){
+      const prev = MES_ORD[idx-1];
+      const curVal = byMes[filters.mes] || 0;
+      const prevVal = byMes[prev] || 0;
+      const diff = curVal - prevVal;
+      const pct = prevVal > 0 ? (diff/prevVal)*100 : (curVal > 0 ? 100 : 0);
+      const sinal = diff > 0 ? 'a mais' : (diff < 0 ? 'a menos' : 'igual');
+      const cor = diff > 0 ? '#C05621' : (diff < 0 ? '#1B7A4A' : '#5C6E60');
+      const seta = diff > 0 ? '▲' : (diff < 0 ? '▼' : '●');
+      cmpHtml = `<div class="pr-insight-cmp">
+        vs <b>${esc(prev)}</b>: ${esc(fmtTon(prevVal))} → ${esc(fmtTon(curVal))}
+        <span style="color:${cor};font-weight:700"> ${seta} ${esc(fmtTon(Math.abs(diff)))} ${sinal}</span>
+        ${prevVal>0 || curVal>0 ? ` <span style="color:${cor}">(${diff>=0?'+':''}${pct.toFixed(0)}%)</span>` : ''}
+      </div>`;
+      // média dos meses anteriores no ano
+      const prevMonths = MES_ORD.slice(0, idx);
+      const prevSum = prevMonths.reduce((s,m)=>s+(byMes[m]||0),0);
+      const prevAvg = prevMonths.length ? prevSum/prevMonths.length : 0;
+      if(prevMonths.length){
+        const dAvg = curVal - prevAvg;
+        const pAvg = prevAvg > 0 ? (dAvg/prevAvg)*100 : 0;
+        const c2 = dAvg > 0 ? '#C05621' : (dAvg < 0 ? '#1B7A4A' : '#5C6E60');
+        const s2 = dAvg > 0 ? 'acima' : (dAvg < 0 ? 'abaixo' : 'igual à');
+        cmpHtml += `<div class="pr-insight-cmp">
+          vs média Jan–${esc(prev)} (${esc(fmtTon(prevAvg))}): 
+          <span style="color:${c2};font-weight:700">${esc(fmtTon(Math.abs(dAvg)))} ${s2} da média</span>
+          ${prevAvg>0 ? ` <span style="color:${c2}">(${dAvg>=0?'+':''}${pAvg.toFixed(0)}%)</span>` : ''}
+        </div>`;
+      }
+    } else if(idx === 0){
+      cmpHtml = `<div class="pr-insight-cmp">Janeiro é o primeiro mês do ano — sem base de comparação anterior.</div>`;
+    }
+    insightBlock = `<div class="pr-insight">
+      <div class="pr-insight-title">Apontamentos do mês · ${esc(filters.mes)}</div>
+      <div class="pr-insight-body">${topTxt}</div>
+      ${cmpHtml}
+    </div>`;
+  }
+
+  return kpis + insightBlock + `
     <div class="pr-grid2">
       <div class="pr-sec"><h3>Quantidade por tipo de resíduo</h3><div class="ps">Peso (ton) por tipo · top 10</div>${orEmpty(barsTipo)}</div>
       <div class="pr-sec"><h3>Tecnologia de destinação</h3><div class="ps">Participação por tecnologia (%)</div>${orEmpty(pieTec)}</div>
@@ -2814,7 +2859,7 @@ function buildFinancasReportBody(){
   const byMesR = {};
   MES_ORD.forEach(m=>byMesR[m]=0);
   yearRec.forEach(r=>{ if(r.Mês) byMesR[r.Mês]=(byMesR[r.Mês]||0)+(+r['Receita (R$)']||0); });
-  let highlightMes = filters.mes || MES_ORD[new Date().getMonth()] || null;
+  const highlightMes = filters.mes || null; // Todos = sem grifo
   const chartVendas = lineChartYearHighlight(byMesR, highlightMes, 'R$');
   const hlNote = highlightMes
     ? `<span class="pr-legend-hl"><i></i> Destaque: ${esc(highlightMes)}</span>`
