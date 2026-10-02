@@ -132,8 +132,8 @@ button,select,input{font-family:inherit}
 }
 .guia-title{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-.02em}
 .guia-sub{font-size:14px;opacity:.8;margin:0 0 32px;line-height:1.5;max-width:520px;margin-left:auto;margin-right:auto}
-.guia-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
-@media(max-width:700px){.guia-grid{grid-template-columns:1fr}}
+.guia-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:900px){.guia-grid{grid-template-columns:1fr}}
 .guia-card{
   appearance:none;border:1px solid rgba(201,162,39,.35);
   background:rgba(255,255,255,.1);backdrop-filter:blur(14px);
@@ -281,10 +281,54 @@ table.data th{
   font-weight:700; position:sticky; top:0; background:var(--navy);
 }
 table.data td{padding:8px 10px;border-bottom:1px solid var(--line);color:var(--ink-2)}
+table.data tbody tr:nth-child(odd) td{background:#fff}
+table.data tbody tr:nth-child(even) td{background:#EAF3EB}
 table.data tr:hover td{background:var(--tint-2)}
-table.data tr.row-crit td{background:rgba(185,28,28,.04)}
-table.data tr.row-urgent td{background:rgba(192,86,33,.04)}
+table.data tr.row-crit td{background:rgba(185,28,28,.06)}
+table.data tr.row-urgent td{background:rgba(192,86,33,.06)}
 .table-wrap{max-height:440px;overflow:auto;border-radius:10px;border:1px solid var(--line)}
+
+/* Unit scope (Filiais / Operações) above filters */
+.unit-scope-bar{
+  display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-bottom:12px;
+}
+.unit-scope-bar .us-btn{
+  appearance:none; border:1px solid var(--line-2); background:#fff; color:var(--ink);
+  padding:9px 16px; border-radius:10px; font-size:13px; font-weight:700; cursor:pointer;
+  transition:all .15s;
+}
+.unit-scope-bar .us-btn:hover{border-color:var(--aqua); color:var(--navy)}
+.unit-scope-bar .us-btn.active{
+  background:linear-gradient(135deg,var(--navy),var(--teal)); color:#fff; border-color:transparent;
+  box-shadow:0 4px 12px rgba(11,46,31,.18);
+}
+.unit-scope-bar .us-all{
+  appearance:none; border:1px solid var(--line-2); background:var(--tint-2); color:var(--ink-2);
+  padding:8px 12px; border-radius:10px; font-size:12px; font-weight:600; cursor:pointer;
+}
+.unit-scope-bar .us-all.active{border-color:var(--gold); color:var(--navy); background:var(--gold-soft)}
+.unit-list-panel{
+  display:none; width:100%; margin-bottom:12px;
+  background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+  padding:12px 14px; box-shadow:var(--shadow);
+}
+.unit-list-panel.open{display:block}
+.unit-list-panel .ulp-title{
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em;
+  color:var(--muted); margin-bottom:10px;
+}
+.unit-list-panel .ulp-grid{
+  display:flex; flex-wrap:wrap; gap:8px;
+}
+.unit-list-panel .ulp-item{
+  appearance:none; border:1px solid var(--line-2); background:#fff; color:var(--ink);
+  padding:8px 12px; border-radius:8px; font-size:12.5px; font-weight:600; cursor:pointer;
+  transition:all .12s;
+}
+.unit-list-panel .ulp-item:hover{border-color:var(--aqua); color:var(--navy)}
+.unit-list-panel .ulp-item.on{
+  background:linear-gradient(135deg,var(--navy),var(--teal)); color:#fff; border-color:transparent;
+}
 
 /* FILTERS inline */
 .filters-inline{
@@ -756,7 +800,7 @@ body.on-guia{
 <aside class="side" id="side">
   <div class="side-head">
     <div class="sh-title">Navegação</div>
-    <div class="sh-sub">Módulos e unidades</div>
+    <div class="sh-sub">Módulos do painel</div>
   </div>
   <div class="side-scroll">
     <div class="sec">Início</div>
@@ -765,30 +809,7 @@ body.on-guia{
     <div class="sec">Módulos</div>
     <button type="button" class="nav" data-mod="residuos" onclick="pickModule('residuos')"><span class="ic">♻</span> Resíduos</button>
     <button type="button" class="nav" data-mod="financas" onclick="pickModule('financas')"><span class="ic">◈</span> Finanças</button>
-    <button type="button" class="nav" data-mod="efluentes" onclick="pickModule('efluentes')"><span class="ic">💧</span> Efluentes</button>
     <button type="button" class="nav" data-mod="licencas" onclick="pickModule('licencas')"><span class="ic">📋</span> Licenças e Alvarás</button>
-
-    <div class="sec">Unidades</div>
-    <button type="button" class="nav" id="nav-all-units" onclick="pickUnit('')"><span class="ic">◎</span> Todas as unidades</button>
-
-    <div class="side-group" id="grp-matriz">
-      <button type="button" class="side-group-btn open" onclick="toggleGroup(this)">
-        <span>Matriz Carmak</span><span class="chev">▾</span>
-      </button>
-      <div class="side-group-body open" id="body-matriz"></div>
-    </div>
-    <div class="side-group" id="grp-filiais">
-      <button type="button" class="side-group-btn open" onclick="toggleGroup(this)">
-        <span>Filiais</span><span class="chev">▾</span>
-      </button>
-      <div class="side-group-body open" id="body-filiais"></div>
-    </div>
-    <div class="side-group" id="grp-ops">
-      <button type="button" class="side-group-btn" onclick="toggleGroup(this)">
-        <span>Operações</span><span class="chev">▾</span>
-      </button>
-      <div class="side-group-body" id="body-ops"></div>
-    </div>
   </div>
   <div class="side-foot">
     <div style="margin-bottom:8px">Painel gerencial · ISO 14001</div>
@@ -803,7 +824,6 @@ body.on-guia{
   <div class="guia-inner">
     <div class="guia-badge">GESTÃO AMBIENTAL</div>
     <h1 class="guia-title">Painel Executivo de Meio Ambiente</h1>
-    <p class="guia-sub">Indicadores de conformidade, destinação de resíduos, efluentes e obrigações legais — prontos para decisão.</p>
     <div class="guia-grid">
       <button type="button" class="guia-card" onclick="pickModule('residuos')">
         <div class="gc-ic">♻</div>
@@ -814,11 +834,6 @@ body.on-guia{
         <div class="gc-ic">◈</div>
         <h3>Finanças</h3>
         <p>Custos de destinação e receitas com resíduos valorizados.</p>
-      </button>
-      <button type="button" class="guia-card" onclick="pickModule('efluentes')">
-        <div class="gc-ic">💧</div>
-        <h3>Efluentes</h3>
-        <p>Parâmetros laboratoriais CSAO e Fossa/Filtro vs. limites.</p>
       </button>
       <button type="button" class="guia-card" onclick="pickModule('licencas')">
         <div class="gc-ic">📋</div>
@@ -1096,6 +1111,7 @@ body.on-guia{
           <select id="lic_status">
             <option>Ativa</option>
             <option>Em andamento</option>
+            <option>Renovação</option>
             <option>Inativa</option>
           </select>
         </div>
@@ -1150,8 +1166,19 @@ const MES_ORD = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','
 let selectedModule = null;
 let selectedUnit = '';
 let selectedEfSystem = 'CSAO';
+let selectedUnitGroup = null; // 'Filial' | 'Operacao' | null
 let screen = 'guia';
 const filters = { ano:'', mes:'', status:'', venc:'' };
+
+function clearFilters(){
+  filters.ano = '';
+  filters.mes = '';
+  filters.status = '';
+  filters.venc = '';
+  selectedUnit = '';
+  selectedUnitGroup = null;
+  selectedEfSystem = 'CSAO';
+}
 
 function esc(s){ if(s==null) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtR(v){ if(v==null||isNaN(v)) return '—'; return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}); }
@@ -1267,35 +1294,59 @@ function toggleGroup(btn){
   const body = btn.nextElementSibling;
   if(body) body.classList.toggle('open');
 }
-function buildSideUnits(){
-  const bm = document.getElementById('body-matriz');
-  const bf = document.getElementById('body-filiais');
-  const bo = document.getElementById('body-ops');
-  if(bm) bm.innerHTML = '';
-  if(bf) bf.innerHTML = '';
-  if(bo) bo.innerHTML = '';
-  UNIT_META.forEach(({u,t})=>{
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'nav';
-    const ic = t==='Matriz' ? '🏢' : t==='Operacao' ? '🏭' : '📍';
-    btn.innerHTML = '<span class="ic">'+ic+'</span> '+esc(u);
-    btn.onclick = ()=>pickUnit(u);
-    btn.dataset.unit = u;
-    if(t==='Matriz' && bm) bm.appendChild(btn);
-    else if(t==='Operacao' && bo) bo.appendChild(btn);
-    else if(bf) bf.appendChild(btn);
-  });
+function buildSideUnits(){ /* unidades agora no filtro Filiais/Operações */ }
+function unitsByGroup(group){
+  // Filiais = Matriz + Filial; Operações = Operacao
+  if(group==='Filial') return UNIT_META.filter(x=>x.t==='Matriz' || x.t==='Filial').map(x=>x.u);
+  if(group==='Operacao') return UNIT_META.filter(x=>x.t==='Operacao').map(x=>x.u);
+  return [];
+}
+function unitScopeHtml(){
+  const filActive = selectedUnitGroup==='Filial';
+  const opsActive = selectedUnitGroup==='Operacao';
+  const allActive = !selectedUnit && !selectedUnitGroup;
+  let html = `<div class="unit-scope-bar">
+    <button type="button" class="us-btn ${filActive?'active':''}" onclick="toggleUnitGroup('Filial')">Filiais</button>
+    <button type="button" class="us-btn ${opsActive?'active':''}" onclick="toggleUnitGroup('Operacao')">Operações</button>
+    <button type="button" class="us-all ${allActive?'active':''}" onclick="pickUnit('')">Todas as unidades</button>
+  </div>`;
+  if(selectedUnitGroup){
+    const list = unitsByGroup(selectedUnitGroup);
+    const title = selectedUnitGroup==='Filial' ? 'Filiais (inclui Matriz)' : 'Operações';
+    html += `<div class="unit-list-panel open">
+      <div class="ulp-title">${esc(title)}</div>
+      <div class="ulp-grid">
+        ${list.map(u=>`<button type="button" class="ulp-item ${selectedUnit===u?'on':''}" onclick="pickUnit('${esc(u)}')">${esc(u)}</button>`).join('')}
+      </div>
+    </div>`;
+  } else if(selectedUnit){
+    html += `<div class="unit-list-panel open">
+      <div class="ulp-title">Unidade selecionada</div>
+      <div class="ulp-grid">
+        <button type="button" class="ulp-item on" onclick="pickUnit('${esc(selectedUnit)}')">${esc(selectedUnit)}</button>
+      </div>
+    </div>`;
+  }
+  return html;
+}
+function toggleUnitGroup(group){
+  if(selectedUnitGroup===group){
+    selectedUnitGroup = null;
+  } else {
+    selectedUnitGroup = group;
+    // ao abrir o grupo, limpa unidade específica até o usuário escolher
+    selectedUnit = '';
+  }
+  updateChrome();
+  renderFilters();
+  renderData();
 }
 function highlightSide(){
   document.querySelectorAll('.side button.nav').forEach(b=>{
     b.classList.remove('on');
     if(b.dataset.go==='home' && screen==='guia') b.classList.add('on');
-    if(b.dataset.mod && b.dataset.mod===selectedModule && !selectedUnit) b.classList.add('on');
-    if(b.dataset.unit && b.dataset.unit===selectedUnit) b.classList.add('on');
+    if(b.dataset.mod && b.dataset.mod===selectedModule && screen==='data') b.classList.add('on');
   });
-  const all = document.getElementById('nav-all-units');
-  if(all) all.classList.toggle('on', !!selectedModule && selectedUnit==='' && screen==='data');
 }
 
 /* Navigation */
@@ -1320,7 +1371,9 @@ function updateChrome(){
   highlightSide();
 }
 function goHome(){
-  selectedModule = null; selectedUnit = ''; screen = 'guia';
+  selectedModule = null;
+  clearFilters();
+  screen = 'guia';
   hideAll();
   document.getElementById('view-guia').classList.add('on');
   document.body.classList.add('on-guia');
@@ -1329,13 +1382,14 @@ function goHome(){
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function pickModule(mod){
+  // Ao trocar de tela, zera filtros da tela anterior
+  clearFilters();
   selectedModule = mod;
-  if(!selectedUnit) selectedUnit = '';
-  selectedEfSystem = 'CSAO';
   screen = 'data';
   hideAll();
   document.body.classList.remove('on-guia');
-  document.getElementById('view-'+mod).classList.add('on');
+  const view = document.getElementById('view-'+mod);
+  if(view) view.classList.add('on');
   updateChrome();
   renderFilters();
   renderData();
@@ -1350,6 +1404,15 @@ function pickModule(mod){
 }
 function pickUnit(unit){
   selectedUnit = unit || '';
+  if(!selectedUnit){
+    selectedUnitGroup = null;
+  } else {
+    // mantém/ajusta grupo conforme a unidade escolhida
+    const meta = UNIT_META.find(x=>x.u===selectedUnit);
+    if(meta){
+      selectedUnitGroup = (meta.t==='Operacao') ? 'Operacao' : 'Filial';
+    }
+  }
   if(!selectedModule){
     toggleSide(false);
     updateChrome();
@@ -1385,32 +1448,34 @@ function renderFilters(){
     return h;
   };
   const printBtn = `<button type="button" class="btn-print-report" onclick="printReport()">Imprimir Relatório</button>`;
+  const scope = unitScopeHtml();
   if(selectedModule==='residuos'){
-    document.getElementById('filt-residuos').innerHTML = commonAnoMes('fr') +
+    document.getElementById('filt-residuos').innerHTML = scope + commonAnoMes('fr') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openResModal(null)">+ Novo resíduo</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadResiduosFromCloud().then(()=>{renderFilters();renderResiduos();})">↻ Atualizar</button>` +
       printBtn;
     bindFilter('fr-ano','fr-mes');
   } else if(selectedModule==='financas'){
-    document.getElementById('filt-financas').innerHTML = commonAnoMes('ff') +
+    document.getElementById('filt-financas').innerHTML = scope + commonAnoMes('ff') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openRecModal(null)">+ Nova receita</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="openResModal(null)">+ Novo custo (resíduo)</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="Promise.all([loadResiduosFromCloud(),loadReceitasFromCloud()]).then(()=>{renderFilters();renderFinancas();})">↻ Atualizar</button>` +
       printBtn;
     bindFilter('ff-ano','ff-mes');
   } else if(selectedModule==='efluentes'){
-    document.getElementById('filt-efluentes').innerHTML = commonAnoMes('fe') +
+    document.getElementById('filt-efluentes').innerHTML = scope + commonAnoMes('fe') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openEfModal(null)">+ Nova medição</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadEfluentesFromCloud().then(()=>{renderFilters();renderEfluentes();})">↻ Atualizar</button>` +
       printBtn;
     bindFilter('fe-ano','fe-mes');
   } else if(selectedModule==='licencas'){
-    document.getElementById('filt-licencas').innerHTML = `
+    document.getElementById('filt-licencas').innerHTML = scope + `
       <div class="f-group"><label>Status</label>
         <select id="fl-status">
           <option value="">Todos</option>
           <option value="Ativa" ${filters.status==='Ativa'?'selected':''}>Ativa</option>
           <option value="Em andamento" ${filters.status==='Em andamento'?'selected':''}>Em andamento</option>
+          <option value="Renovação" ${filters.status==='Renovação'?'selected':''}>Renovação</option>
           <option value="Inativa" ${filters.status==='Inativa'?'selected':''}>Inativa</option>
         </select>
       </div>
@@ -1922,13 +1987,13 @@ function buildNotifications(){
       });
       return;
     }
-    if(st==='Em andamento'){
+    if(st==='Em andamento' || st==='Renovação'){
       items.push({
-        lvl:'warn',
-        title: tipo + ' · Em andamento',
-        desc: loc + (obs ? ' · ' + obs.slice(0,90) : ' · Acompanhar processo'),
+        lvl: st==='Renovação' ? 'urgent' : 'warn',
+        title: tipo + ' · ' + st,
+        desc: loc + (obs ? ' · ' + obs.slice(0,90) : (st==='Renovação' ? ' · Em processo de renovação' : ' · Acompanhar processo')),
         mod:'licencas',
-        sort: 3
+        sort: st==='Renovação' ? 2 : 3
       });
     }
     if(x!==null && x>=0 && x<=30){
@@ -2210,6 +2275,7 @@ function renderLicencas(){
   const docs = filteredDocs();
   const ativas = docs.filter(d=>d.Status==='Ativa').length;
   const andamento = docs.filter(d=>d.Status==='Em andamento').length;
+  const renovacao = docs.filter(d=>d.Status==='Renovação').length;
   const inativas = docs.filter(d=>d.Status==='Inativa').length;
   const vencidas = docs.filter(d=>{const x=daysUntil(d['Válida até']); return x!==null&&x<0;});
   const v30 = docs.filter(d=>{const x=daysUntil(d['Válida até']); return x!==null&&x>=0&&x<=30;});
@@ -2267,6 +2333,7 @@ function renderLicencas(){
     <div class="comp-stats">
       <div><i style="background:var(--ok)"></i> <b>${ativas}</b>&nbsp; ativas</div>
       <div><i style="background:var(--warn)"></i> <b>${andamento}</b>&nbsp; em andamento</div>
+      <div><i style="background:var(--urgent)"></i> <b>${renovacao}</b>&nbsp; renovação</div>
       <div><i style="background:var(--crit)"></i> <b>${vencidas.length}</b>&nbsp; vencidas</div>
       <div><i style="background:var(--off)"></i> <b>${inativas}</b>&nbsp; inativas</div>
     </div>`;
@@ -2291,7 +2358,7 @@ function renderLicencas(){
     byLoc[k].total++;
     const x = daysUntil(d['Válida até']);
     if(d.Status==='Inativa' || (x!==null&&x<0)) byLoc[k].crit++;
-    else if(d.Status==='Em andamento') byLoc[k].and++;
+    else if(d.Status==='Em andamento' || d.Status==='Renovação') byLoc[k].and++;
     else if(d.Status==='Ativa') byLoc[k].ativa++;
   });
   document.getElementById('lic-unit-matrix').innerHTML = Object.entries(byLoc).map(([name,v])=>{
@@ -2326,7 +2393,7 @@ function renderLicencas(){
     let rowClass = '';
     if(r.Status==='Inativa' || (x!==null&&x<0)) rowClass='row-crit';
     else if(x!==null&&x<=30) rowClass='row-urgent';
-    const st = r.Status==='Ativa'?'ok':r.Status==='Em andamento'?'w90':r.Status==='Inativa'?'late':'off';
+    const st = r.Status==='Ativa'?'ok':r.Status==='Em andamento'?'w90':r.Status==='Renovação'?'w30':r.Status==='Inativa'?'late':'off';
     const idAttr = r.id ? esc(r.id) : '';
     return `<tr class="${rowClass}">
       <td>${esc(r.Localidade)}</td><td>${esc(r['Tipo de Licença'])}</td><td>${esc(r['Nº'])}</td>
