@@ -927,12 +927,8 @@ body.on-guia{
     <div class="kpi-row" id="kpi-efluentes"></div>
     <div class="panel" style="padding-bottom:8px">
       <h3>Parâmetros · medições por ano</h3>
-      <p class="panel-sub">Barras = valor medido · linha tracejada = limite da planilha (máx. ou faixa)</p>
+      <p class="panel-sub">Cada barra = uma medição individual · Fossa/Filtro separa Entrada e Saída · linha tracejada = limite</p>
       <div class="ef-charts" id="ef-charts"></div>
-    </div>
-    <div class="panel">
-      <h3>Resumo por parâmetro</h3>
-      <div id="ef-params"></div>
     </div>
     <div class="panel">
       <h3>Registros</h3>
@@ -2137,29 +2133,37 @@ async function manualSync(){
 }
 
 function efChartSvg(years, values, bounds, height=150){
-  const w=320, h=height, padL=36, padR=12, padT=18, padB=28;
+  // Série única: um valor por ano (sem somar medições distintas)
+  return efMultiChartSvg(years, [{ name:'Medição', values, color:'#1A4F36' }], bounds, height);
+}
+
+/** Gráfico multi-série (ex.: Entrada 1, Saída 1…) — valores individuais, sem somar */
+function efMultiChartSvg(years, series, bounds, height=180){
+  const w = Math.max(340, 80 + years.length * Math.max(56, series.length * 14));
+  const h = height;
+  const padL=40, padR=10, padT=22, padB=36;
   const plotW=w-padL-padR, plotH=h-padT-padB;
-  const nums = values.filter(v=>v!=null && !isNaN(v));
-  let yMax = Math.max(...nums, bounds.max!=null?bounds.max:0, 0);
-  let yMin = Math.min(...nums, bounds.min!=null?bounds.min:0, 0);
+  const allNums = [];
+  series.forEach(s=>(s.values||[]).forEach(v=>{ if(v!=null && !isNaN(v)) allNums.push(v); }));
+  let yMax = Math.max(...allNums, bounds.max!=null?bounds.max:0, 0);
+  let yMin = Math.min(...(allNums.length?allNums:[0]), bounds.min!=null?bounds.min:0, 0);
   if(yMax===yMin){ yMax = yMax||1; yMin=0; }
-  // headroom
   const span = yMax-yMin || 1;
-  yMax = yMax + span*0.15;
+  yMax = yMax + span*0.18;
   if(yMin>0) yMin = Math.max(0, yMin - span*0.05);
   const yScale = v => padT + plotH - ((v-yMin)/(yMax-yMin))*plotH;
-  const n = Math.max(years.length,1);
-  const gap = plotW/(n);
-  const barW = Math.min(36, gap*0.45);
+  const nY = Math.max(years.length,1);
+  const nS = Math.max(series.length,1);
+  const groupW = plotW / nY;
+  const barW = Math.min(14, Math.max(4, (groupW * 0.75) / nS));
+  const clusterW = barW * nS;
   let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="xMidYMid meet">`;
-  // grid
   for(let i=0;i<=3;i++){
     const gy = padT + (plotH*i/3);
     const gv = yMax - (yMax-yMin)*i/3;
     svg += `<line x1="${padL}" y1="${gy}" x2="${w-padR}" y2="${gy}" stroke="#E8EEE8" stroke-width="1"/>`;
     svg += `<text x="${padL-4}" y="${gy+3}" text-anchor="end" font-size="9" fill="#5C6E60">${fmtN(gv, gv>=10?0:1)}</text>`;
   }
-  // limit max
   if(bounds.max!=null){
     const ly = yScale(bounds.max);
     svg += `<line x1="${padL}" y1="${ly}" x2="${w-padR}" y2="${ly}" stroke="#B91C1C" stroke-width="1.5" stroke-dasharray="5 4"/>`;
@@ -2168,24 +2172,50 @@ function efChartSvg(years, values, bounds, height=150){
   if(bounds.min!=null){
     const ly = yScale(bounds.min);
     svg += `<line x1="${padL}" y1="${ly}" x2="${w-padR}" y2="${ly}" stroke="#C05621" stroke-width="1.5" stroke-dasharray="5 4"/>`;
-    svg += `<text x="${w-padR}" y="${ly-4}" text-anchor="end" font-size="9" fill="#C05621" font-weight="600">Mín ${fmtN(bounds.min,1)}</text>`;
   }
-  years.forEach((yr,i)=>{
-    const v = values[i];
-    const cx = padL + gap*i + gap/2;
-    if(v!=null && !isNaN(v)){
+  years.forEach((yr,yi)=>{
+    const gcx = padL + groupW*yi + groupW/2;
+    const startX = gcx - clusterW/2;
+    series.forEach((s,si)=>{
+      const v = s.values[yi];
+      if(v==null || isNaN(v)) return;
+      const x = startX + si*barW;
       const y0 = yScale(Math.max(0,yMin));
       const y1 = yScale(v);
       const top = Math.min(y0,y1), bh = Math.max(2, Math.abs(y0-y1));
       const over = (bounds.max!=null && v>bounds.max) || (bounds.min!=null && v<bounds.min);
-      svg += `<rect x="${cx-barW/2}" y="${top}" width="${barW}" height="${bh}" rx="4" fill="${over?'#C05621':'#1A4F36'}"/>`;
-      svg += `<text x="${cx}" y="${top-4}" text-anchor="middle" font-size="10" font-weight="700" fill="#0C1A12">${fmtN(v, v>=10?1:1)}</text>`;
-    }
-    svg += `<text x="${cx}" y="${h-8}" text-anchor="middle" font-size="10" fill="#5C6E60">${esc(String(yr))}</text>`;
+      const fill = over ? '#C05621' : (s.color || '#1A4F36');
+      svg += `<rect x="${x}" y="${top}" width="${Math.max(3,barW-1)}" height="${bh}" rx="2" fill="${fill}"/>`;
+      if(nS <= 4){
+        svg += `<text x="${x+(barW-1)/2}" y="${top-3}" text-anchor="middle" font-size="8" font-weight="700" fill="#0C1A12">${fmtN(v, v>=10?1:1)}</text>`;
+      }
+    });
+    svg += `<text x="${gcx}" y="${h-10}" text-anchor="middle" font-size="10" fill="#5C6E60">${esc(String(yr))}</text>`;
   });
   svg += '</svg>';
   return svg;
 }
+
+function parseFossaPonto(sistema){
+  // "Fossa e Filtro - Entrada 1" → { tipo:'Entrada', n:'1', label:'Entrada 1' }
+  const s = String(sistema||'');
+  const m = s.match(/(Entrada|Sa[ií]da)\s*(\d+)/i);
+  if(m){
+    const tipo = /sa[ií]da/i.test(m[1]) ? 'Saída' : 'Entrada';
+    return { tipo, n:m[2], label: tipo+' '+m[2] };
+  }
+  if(/entrada/i.test(s)) return { tipo:'Entrada', n:'', label:'Entrada' };
+  if(/sa[ií]da/i.test(s)) return { tipo:'Saída', n:'', label:'Saída' };
+  return { tipo:'Outro', n:'', label: s || '—' };
+}
+
+const EF_SERIES_COLORS = {
+  'Entrada 1':'#1A4F36', 'Saída 1':'#C9A227',
+  'Entrada 2':'#2D6A4F', 'Saída 2':'#E8C547',
+  'Entrada 3':'#40916C', 'Saída 3':'#B8860B',
+  'Entrada':'#1A4F36', 'Saída':'#C9A227',
+  'Medição':'#1A4F36', 'CSAO':'#1A4F36'
+};
 
 
 function setEfSystem(sys){
@@ -2197,7 +2227,6 @@ function renderEfluentes(){
   const rows = filteredEfluentes();
   const n = rows.length;
   const params = new Set(rows.map(r=>r.Parâmetro).filter(Boolean)).size;
-  // simple compliance: for numeric limits with <= or <
   let ok=0, fail=0;
   rows.forEach(r=>{
     const lim = r.Limite;
@@ -2215,49 +2244,64 @@ function renderEfluentes(){
     <div class="kpi ok-edge"><div class="lbl">Dentro do limite</div><div class="val">${ok}</div><div class="sub">leituras ok</div></div>
     <div class="kpi crit-edge"><div class="lbl">Acima do limite</div><div class="val">${fail}</div><div class="sub">requer atenção</div></div>`;
 
-  // Group by parameter -> year averages + limit
+  // Por parâmetro: séries separadas (CSAO = 1 série; Fossa = Entrada/Saída por ponto) — SEM somar valores
   const byP = {};
   rows.forEach(r=>{
     const k = r.Parâmetro||'—';
-    if(!byP[k]) byP[k]={byYear:{}, lim:r.Limite, op:r['Operador Limite'], sys:r.Sistema};
+    if(!byP[k]) byP[k]={ series:{}, lim:r.Limite, op:r['Operador Limite'] };
+    let seriesKey = 'Medição';
+    if(selectedEfSystem!=='CSAO'){
+      const p = parseFossaPonto(r.Sistema);
+      seriesKey = p.label;
+    } else {
+      seriesKey = 'CSAO';
+    }
     const yr = r.Ano!=null ? String(r.Ano) : '—';
-    if(!byP[k].byYear[yr]) byP[k].byYear[yr]=[];
-    byP[k].byYear[yr].push(+r.Valor||0);
+    if(!byP[k].series[seriesKey]) byP[k].series[seriesKey] = {};
+    // valor individual: se houver duplicata no mesmo ano/série, mantém a última (não soma)
+    const v = +r.Valor;
+    if(!isNaN(v)) byP[k].series[seriesKey][yr] = v;
   });
 
-  const chartHtml = Object.entries(byP).map(([name,o])=>{
-    const years = Object.keys(o.byYear).sort();
-    const values = years.map(y=>{
-      const arr=o.byYear[y]; return arr.reduce((a,b)=>a+b,0)/arr.length;
+  const seriesOrder = (keys)=>{
+    return keys.sort((a,b)=>{
+      const pa = parseFossaPonto(a), pb = parseFossaPonto(b);
+      const na = parseInt(pa.n||'0',10), nb = parseInt(pb.n||'0',10);
+      if(na!==nb) return na-nb;
+      if(pa.tipo===pb.tipo) return a.localeCompare(b,'pt-BR');
+      if(pa.tipo==='Entrada') return -1;
+      if(pb.tipo==='Entrada') return 1;
+      return a.localeCompare(b,'pt-BR');
     });
+  };
+
+  const chartHtml = Object.entries(byP).map(([name,o])=>{
+    const sKeys = seriesOrder(Object.keys(o.series));
+    const yearSet = new Set();
+    sKeys.forEach(sk=>Object.keys(o.series[sk]).forEach(y=>yearSet.add(y)));
+    const years = [...yearSet].sort();
+    const series = sKeys.map(sk=>({
+      name: sk,
+      values: years.map(y => (o.series[sk][y]!=null ? o.series[sk][y] : null)),
+      color: EF_SERIES_COLORS[sk] || (sk.indexOf('Saída')>=0 ? '#C9A227' : '#1A4F36')
+    }));
     const bounds = parseLimitBounds(o.lim, o.op);
     const limTxt = bounds.label || (o.lim?String(o.lim):'—');
     const opTxt = o.op ? String(o.op)+' ' : '';
+    const legend = series.map(s=>`<span><i style="background:${s.color}"></i> ${esc(s.name)}</span>`).join('');
+    const h = series.length > 2 ? 200 : 170;
     return `<div class="ef-chart-card">
       <h4>${esc(name)}</h4>
-      <div class="sub">Valores por ano · limite: ${esc(opTxt+limTxt)}</div>
-      <div class="ef-svg-wrap">${efChartSvg(years, values, bounds)}</div>
+      <div class="sub">Medições individuais por ano · limite: ${esc(opTxt+limTxt)}</div>
+      <div class="ef-svg-wrap" style="height:auto">${efMultiChartSvg(years, series, bounds, h)}</div>
       <div class="ef-legend">
-        <span><i style="background:#1A4F36"></i> ${esc(selectedEfSystem==='CSAO'?'CSAO':'Fossa / Filtro')}</span>
+        ${legend}
         <span><i class="lim"></i> limite</span>
       </div>
     </div>`;
   }).join('');
   const chartsEl = document.getElementById('ef-charts');
   if(chartsEl) chartsEl.innerHTML = chartHtml || '<div class="empty-state">Sem medições no filtro</div>';
-
-  const html = Object.entries(byP).map(([name,o])=>{
-    const all = Object.values(o.byYear).flat();
-    const avg = all.length ? all.reduce((a,b)=>a+b,0)/all.length : 0;
-    const bounds = parseLimitBounds(o.lim, o.op);
-    let status='ok';
-    if(bounds.max!=null && avg>bounds.max) status='crit';
-    else if(bounds.min!=null && avg<bounds.min) status='crit';
-    return `<div class="bar-row"><div class="name" title="${esc(name)}">${esc(name)}</div>
-      <div class="bar-track"><div class="bar-fill" style="width:${Math.min(100, avg>0?35+Math.min(55,avg):5)}%;background:${status==='crit'?'var(--crit)':'linear-gradient(90deg,var(--navy-2),var(--aqua-2))'}"></div></div>
-      <div class="num">${fmtN(avg,2)}</div></div>`;
-  }).join('');
-  document.getElementById('ef-params').innerHTML = html || '<div class="empty-state">Sem medições no filtro</div>';
 
   document.querySelector('#tbl-efluentes thead').innerHTML = `<tr><th>Unidade</th><th>Sistema</th><th>Parâmetro</th><th>Operador</th><th>Limite</th><th>Ano</th><th>Valor</th><th></th></tr>`;
   document.querySelector('#tbl-efluentes tbody').innerHTML = rows.map(r=>`<tr>
@@ -3209,7 +3253,6 @@ function buildFinancasReportBody(){
 function buildEfluentesReportBody(){
   let kpis = kpiCardsFromDom('kpi-efluentes');
   let charts = cloneInner('ef-charts');
-  let params = cloneInner('ef-params');
   if(!kpis){
     const rows = filteredEfluentes();
     const n = rows.length;
@@ -3232,10 +3275,9 @@ function buildEfluentesReportBody(){
   }
   return kpis + `
     <div class="pr-sec"><h3>Parâmetros · medições por ano</h3>
-      <div class="ps">Barras = valor medido · linha tracejada = limite</div>
+      <div class="ps">Medições individuais · Fossa/Filtro separa Entrada e Saída · linha tracejada = limite</div>
       <div class="ef-charts">${orEmpty(charts)}</div>
-    </div>
-    <div class="pr-sec"><h3>Resumo por parâmetro</h3>${orEmpty(params)}</div>`;
+    </div>`;
 }
 function buildLicencasReportBody(){
   let kpis = kpiCardsFromDom('kpi-licencas');
