@@ -326,18 +326,15 @@ table.data tr.row-urgent td{background:rgba(192,86,33,.04)}
 #print-report-root .pr-meta{text-align:right;font-size:10.5px;color:#3D4F42;line-height:1.5}
 #print-report-root .pr-meta b{color:#0B2E1F}
 #print-report-root .pr-report-title{
-  font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;color:#0B2E1F;
-  margin:0 0 10px;padding:10px 14px;
-  background:linear-gradient(90deg,#F7F9F5 0%,#fff 100%);
-  border:1px solid #D0D9D0;border-left:4px solid #C9A227;border-radius:10px;
+  font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;color:#fff;
+  margin:0 0 14px;padding:12px 18px;text-align:center;letter-spacing:.01em;
+  background:linear-gradient(135deg,#0B2E1F 0%,#1A4F36 55%,#123D2A 100%);
+  border:2px solid #C9A227;border-radius:12px;
+  box-shadow:0 2px 10px rgba(11,46,31,.12);
 }
-#print-report-root .pr-filters{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:8px 12px;
-  background:#F7F9F5;border:1px solid #D0D9D0;border-radius:12px;
-  padding:10px 12px;margin-bottom:14px;font-size:11.5px;
-}
-#print-report-root .pr-filters div span{color:#5C6E60;font-size:9.5px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;display:block;margin-bottom:2px}
-#print-report-root .pr-filters div b{color:#0B2E1F;font-weight:700}
+#print-report-root .pr-filters{display:none}
+#print-report-root .pr-filters div span{display:none}
+#print-report-root .pr-filters div b{display:none}
 #print-report-root .pr-kpi{
   display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;
 }
@@ -365,9 +362,10 @@ table.data tr.row-urgent td{background:rgba(192,86,33,.04)}
 #print-report-root .pr-grid2 > .pr-sec{margin-bottom:0}
 #print-report-root .pr-foot{
   margin-top:14px;padding-top:8px;border-top:2px solid #C9A227;
-  font-size:9.5px;color:#5C6E60;display:flex;justify-content:space-between;align-items:center;gap:12px;
+  font-size:9.5px;color:#5C6E60;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;
 }
 #print-report-root .pr-foot .pg{font-weight:700;color:#0B2E1F;white-space:nowrap}
+#print-report-root .pr-foot b{color:#0B2E1F}
 #print-report-root .pr-legend-hl{
   display:inline-flex;align-items:center;gap:6px;font-size:10px;color:#5C6E60;margin-left:8px;
 }
@@ -2644,22 +2642,17 @@ function reportPeriodTitle(){
   const mes = filters.mes || 'Todos os meses';
   const unit = selectedUnit || 'Todas as unidades';
   const ano = filters.ano || 'todos os anos';
-  return `Relatório de ${mes} | ${unit} de ${ano}`;
+  return `Relatório de ${mes} de ${ano} | ${unit}`;
 }
 function reportHeaderHtml(){
-  const now = new Date();
-  const when = now.toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'});
-  const user = (currentUser && currentUser.email) ? currentUser.email : '—';
   const mod = MODULE_LABELS[selectedModule] || '';
-  const filtersHtml = reportFilterLabels().map(f=>
-    `<div><span>${esc(f.l)}</span><b>${esc(f.v)}</b></div>`
-  ).join('');
-  const periodTitle = selectedModule === 'residuos'
-    ? `<div class="pr-report-title">${esc(reportPeriodTitle())}</div>`
-    : '';
-  const subtitle = selectedModule === 'residuos'
-    ? 'Relatório gerencial de destinação de resíduos · uso interno'
-    : `Relatório gerencial · ${mod}`;
+  const subtitleMap = {
+    residuos: 'Relatório gerencial de destinação de resíduos · uso interno',
+    financas: 'Relatório gerencial financeiro ambiental · uso interno',
+    efluentes: 'Relatório gerencial de efluentes · uso interno',
+    licencas: 'Relatório gerencial de licenças e alvarás · uso interno'
+  };
+  const subtitle = subtitleMap[selectedModule] || (`Relatório gerencial · ${mod}`);
   return `
     <div class="pr-head">
       <div class="pr-brand">
@@ -2669,18 +2662,16 @@ function reportHeaderHtml(){
           <div class="pr-sub">${esc(subtitle)}</div>
         </div>
       </div>
-      <div class="pr-meta">
-        <div>Impresso em <b>${esc(when)}</b></div>
-        <div>Usuário: <b>${esc(user)}</b></div>
-      </div>
     </div>
-    ${periodTitle}
-    <div class="pr-filters">${filtersHtml}</div>`;
+    <div class="pr-report-title">${esc(reportPeriodTitle())}</div>`;
 }
 function reportFooterHtml(){
+  const now = new Date();
+  const when = now.toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'});
+  const user = (currentUser && currentUser.email) ? currentUser.email : '—';
   return `<div class="pr-foot">
     <span>Meio Ambiente · Carmak · Gestão Ambiental</span>
-    <span>Documento gerado automaticamente pelo painel</span>
+    <span>Impresso em <b>${esc(when)}</b> · Usuário: <b>${esc(user)}</b></span>
     <span class="pg">Página 1 de 1</span>
   </div>`;
 }
@@ -2773,10 +2764,26 @@ function buildResiduosReportBody(){
     ? `<span class="pr-legend-hl"><i></i> Destaque: ${esc(highlightMes)}</span>`
     : '';
 
+  // Somatório por destinador (peso por destinatário)
+  const byDest = {};
+  res.forEach(r=>{
+    const k = (r.Destinatário || r.Destinatario || '—').trim() || '—';
+    byDest[k] = (byDest[k]||0) + (+r['Peso (ton)']||0);
+  });
+  const barsDest = barList(
+    Object.entries(byDest).map(([name,v])=>({name, v, label:fmtTon(v)})).sort((a,b)=>b.v-a.v).slice(0,12),
+    'v'
+  );
+
   return kpis + unitBlock + `
     <div class="pr-grid2">
       <div class="pr-sec"><h3>Quantidade por tipo de resíduo</h3><div class="ps">Peso (ton) por tipo · top 10</div>${orEmpty(barsTipo)}</div>
       <div class="pr-sec"><h3>Tecnologia de destinação</h3><div class="ps">Participação por tecnologia (%)</div>${orEmpty(pieTec)}</div>
+    </div>
+    <div class="pr-sec">
+      <h3>Somatório por destinador</h3>
+      <div class="ps">Peso (ton) destinado por empresa destinatária · top 12</div>
+      ${orEmpty(barsDest)}
     </div>
     <div class="pr-sec">
       <h3>Evolução mensal (ton) ${hlNote}</h3>
@@ -2785,36 +2792,64 @@ function buildResiduosReportBody(){
     </div>`;
 }
 function buildFinancasReportBody(){
-  let kpis = kpiCardsFromDom('kpi-financas');
-  let chartMes = cloneInner('chart-fin-mes');
-  let barsUn = cloneInner('bars-fin-un');
-  if(!kpis || !chartMes){
-    const res = filteredResiduos();
-    const rec = filteredReceitas();
-    const custo = res.reduce((s,r)=>s+(+r['Total (R$)']||0),0);
-    const receita = rec.reduce((s,r)=>s+(+r['Receita (R$)']||0),0);
-    const saldo = receita - custo;
-    kpis = kpiCardsFromList([
-      {l:'Custo destinação', v:fmtR(custo), s: res.length+' movimentos'},
-      {l:'Receita valorização', v:fmtR(receita), s: rec.length+' registros'},
-      {l:'Saldo líquido', v:fmtR(saldo), s:'receita − custo'},
-      {l:'Cobertura', v: custo>0?((receita/custo)*100).toFixed(0)+'%':'—', s:'receita / custo'}
-    ]);
-    const byMesC={}, byMesR={};
-    MES_ORD.forEach(m=>{byMesC[m]=0;byMesR[m]=0});
-    res.forEach(r=>{if(r.Mês) byMesC[r.Mês]+=(+r['Total (R$)']||0)});
-    rec.forEach(r=>{if(r.Mês) byMesR[r.Mês]+=(+r['Receita (R$)']||0)});
-    const mesesP = MES_ORD.filter(m=>byMesC[m]>0||byMesR[m]>0);
-    chartMes = dualBarChart(mesesP, mesesP.map(m=>byMesC[m]), mesesP.map(m=>byMesR[m]));
-    const byUn = {};
-    res.forEach(r=>{const k=r.Unidade||'—'; byUn[k]=byUn[k]||{c:0,r:0}; byUn[k].c+=(+r['Total (R$)']||0)});
-    rec.forEach(r=>{const k=r.Unidade||'—'; byUn[k]=byUn[k]||{c:0,r:0}; byUn[k].r+=(+r['Receita (R$)']||0)});
-    barsUn = barList(Object.entries(byUn).map(([name,v])=>({name,v:v.r-v.c,label:fmtR(v.r-v.c)})).sort((a,b)=>b.v-a.v), 'v');
-  }
+  const res = filteredResiduos();
+  const rec = filteredReceitas();
+  const custo = res.reduce((s,r)=>s+(+r['Total (R$)']||0),0);
+  const receita = rec.reduce((s,r)=>s+(+r['Receita (R$)']||0),0);
+  const saldo = receita - custo;
+  const kpis = `
+    <div class="pr-kpi cols4">
+      <div class="k"><div class="l">Custo destinação</div><div class="v">${esc(fmtR(custo))}</div><div class="s">${res.length} movimentos</div></div>
+      <div class="k teal"><div class="l">Receita valorização</div><div class="v">${esc(fmtR(receita))}</div><div class="s">${rec.length} registros</div></div>
+      <div class="k gold"><div class="l">Saldo líquido</div><div class="v">${esc(fmtR(saldo))}</div><div class="s">receita − custo</div></div>
+      <div class="k"><div class="l">Cobertura</div><div class="v">${custo>0?((receita/custo)*100).toFixed(0)+'%':'—'}</div><div class="s">receita / custo</div></div>
+    </div>`;
+
+  // Evolução da venda (receitas) — 12 meses do ano/unidade, sem filtro de mês
+  const yearRec = (DATA.receitas||[]).filter(r=>{
+    if(!matchUnit(r.Unidade)) return false;
+    if(filters.ano && String(r.Ano)!==String(filters.ano)) return false;
+    return true;
+  });
+  const byMesR = {};
+  MES_ORD.forEach(m=>byMesR[m]=0);
+  yearRec.forEach(r=>{ if(r.Mês) byMesR[r.Mês]=(byMesR[r.Mês]||0)+(+r['Receita (R$)']||0); });
+  let highlightMes = filters.mes || MES_ORD[new Date().getMonth()] || null;
+  const chartVendas = lineChartYearHighlight(byMesR, highlightMes, 'R$');
+  const hlNote = highlightMes
+    ? `<span class="pr-legend-hl"><i></i> Destaque: ${esc(highlightMes)}</span>`
+    : '';
+
+  // Pizza: resíduos vendidos (por tipo, valor receita)
+  const byTipoRec = {};
+  rec.forEach(r=>{
+    const k = r.Resíduo || '—';
+    byTipoRec[k] = (byTipoRec[k]||0) + (+r['Receita (R$)']||0);
+  });
+  const pieVendidos = pieSvg(
+    Object.entries(byTipoRec).map(([name,v])=>({name,v})).sort((a,b)=>b.v-a.v)
+  );
+
+  // Barras por destinador (receita)
+  const byDest = {};
+  rec.forEach(r=>{
+    const k = (r.Destinador || '—').trim() || '—';
+    byDest[k] = (byDest[k]||0) + (+r['Receita (R$)']||0);
+  });
+  const barsDest = barList(
+    Object.entries(byDest).map(([name,v])=>({name, v, label:fmtR(v)})).sort((a,b)=>b.v-a.v).slice(0,12),
+    'v'
+  );
+
   return kpis + `
+    <div class="pr-sec">
+      <h3>Evolução da venda de resíduos ${hlNote}</h3>
+      <div class="ps">Receita de valorização em todos os meses do ano (R$) · zero quando sem movimento</div>
+      ${chartVendas}
+    </div>
     <div class="pr-grid2">
-      <div class="pr-sec"><h3>Custo vs receita por mês</h3><div class="ps">Comparativo mensal (R$)</div>${orEmpty(chartMes)}</div>
-      <div class="pr-sec"><h3>Resultado por unidade</h3><div class="ps">Receita − custo</div>${orEmpty(barsUn)}</div>
+      <div class="pr-sec"><h3>Resíduos vendidos</h3><div class="ps">Participação da receita por tipo (%)</div>${orEmpty(pieVendidos)}</div>
+      <div class="pr-sec"><h3>Receita por destinador</h3><div class="ps">Valorização (R$) por empresa · top 12</div>${orEmpty(barsDest)}</div>
     </div>`;
 }
 function buildEfluentesReportBody(){
