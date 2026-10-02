@@ -3036,9 +3036,9 @@ function reportHeaderHtml(){
     licencas: 'Relatório gerencial de licenças e alvarás · uso interno'
   };
   const subtitle = subtitleMap[selectedModule] || (`Relatório gerencial · ${mod}`);
-  // Relatório mensal de resíduos: sem logo CA / marca / subtítulo
-  const isResMes = selectedModule === 'residuos' && !!filters.mes;
-  const brand = isResMes ? '' : `
+  // Sem logo CA / marca: relatório mensal de resíduos OU qualquer relatório de efluentes
+  const hideBrand = (selectedModule === 'residuos' && !!filters.mes) || selectedModule === 'efluentes';
+  const brand = hideBrand ? '' : `
     <div class="pr-head">
       <div class="pr-brand">
         <div class="pr-mark">CA</div>
@@ -3314,34 +3314,11 @@ function buildFinancasReportBody(){
 }
 function buildEfluentesReportBody(){
   // Sempre regenera a partir dos dados filtrados (não depende do DOM / clone de SVG)
+  // PDF de efluentes: sem marca CA, sem badge de sistema e sem KPIs — só título do período + gráficos
   const rows = filteredEfluentes();
   const sysLabel = selectedEfSystem==='CSAO' ? 'CSAO' : 'Fossa / Filtro';
-  const isFossa = selectedEfSystem !== 'CSAO';
-  const n = rows.length;
-  const nParams = new Set(rows.map(r=>r.Parâmetro).filter(Boolean)).size;
-  let ok=0, fail=0;
-  rows.forEach(r=>{
-    if(isFossa && parseFossaPonto(r.Sistema).tipo !== 'Saída') return;
-    const val = +r.Valor; const op = String(r['Operador Limite']||''); const lim = r.Limite;
-    if(lim==null||lim===''||isNaN(val)) return;
-    const b = parseLimitBounds(lim, op);
-    const limN = parseFloat(String(lim).replace(',','.'));
-    if(op.includes('<=') || op.includes('≤') || op==='<='){ if(!isNaN(limN)){ if(val<=limN) ok++; else fail++; } }
-    else if(op.includes('<') && !op.includes('=')){ if(!isNaN(limN)){ if(val<limN) ok++; else fail++; } }
-    else if(b.min!=null && b.max!=null){ if(val>=b.min && val<=b.max) ok++; else fail++; }
-    else if(b.max!=null){ if(val<=b.max) ok++; else fail++; }
-    else if(b.min!=null){ if(val>=b.min) ok++; else fail++; }
-  });
-  const kpis = kpiCardsFromList([
-    {l:'Medições', v:String(n), s: sysLabel},
-    {l:'Parâmetros', v:String(nParams), s:'monitorados'},
-    {l:'Dentro do limite', v:String(ok), s: isFossa?'somente saídas ok':'leituras ok'},
-    {l:'Acima do limite', v:String(fail), s: isFossa?'somente saídas':'requer atenção'}
-  ]);
   const charts = buildEfluentesChartsHtml(rows, true);
   return `
-    <div class="ef-sys-badge">Sistema: ${esc(sysLabel)}</div>
-    ${kpis}
     <div class="pr-sec">
       <h3>Parâmetros · medições por ano · ${esc(sysLabel)}</h3>
       <div class="ps">Filtro atual · medições individuais · limite (máx/mín) só na Saída</div>
