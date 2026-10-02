@@ -132,8 +132,8 @@ button,select,input{font-family:inherit}
 }
 .guia-title{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;margin:0 0 8px;letter-spacing:-.02em}
 .guia-sub{font-size:14px;opacity:.8;margin:0 0 32px;line-height:1.5;max-width:520px;margin-left:auto;margin-right:auto}
-.guia-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-@media(max-width:900px){.guia-grid{grid-template-columns:1fr}}
+.guia-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+@media(max-width:700px){.guia-grid{grid-template-columns:1fr}}
 .guia-card{
   appearance:none;border:1px solid rgba(201,162,39,.35);
   background:rgba(255,255,255,.1);backdrop-filter:blur(14px);
@@ -809,6 +809,7 @@ body.on-guia{
     <div class="sec">Módulos</div>
     <button type="button" class="nav" data-mod="residuos" onclick="pickModule('residuos')"><span class="ic">♻</span> Resíduos</button>
     <button type="button" class="nav" data-mod="financas" onclick="pickModule('financas')"><span class="ic">◈</span> Finanças</button>
+    <button type="button" class="nav" data-mod="efluentes" onclick="pickModule('efluentes')"><span class="ic">💧</span> Efluentes</button>
     <button type="button" class="nav" data-mod="licencas" onclick="pickModule('licencas')"><span class="ic">📋</span> Licenças e Alvarás</button>
   </div>
   <div class="side-foot">
@@ -834,6 +835,11 @@ body.on-guia{
         <div class="gc-ic">◈</div>
         <h3>Finanças</h3>
         <p>Custos de destinação e receitas com resíduos valorizados.</p>
+      </button>
+      <button type="button" class="guia-card" onclick="pickModule('efluentes')">
+        <div class="gc-ic">💧</div>
+        <h3>Efluentes</h3>
+        <p>Parâmetros laboratoriais CSAO e Fossa/Filtro vs. limites.</p>
       </button>
       <button type="button" class="guia-card" onclick="pickModule('licencas')">
         <div class="gc-ic">📋</div>
