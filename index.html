@@ -453,10 +453,19 @@ table.data tr.row-urgent td{background:rgba(192,86,33,.06)}
 #print-report-root .dual-tracks .df.custo{background:linear-gradient(90deg,#7A2E28,#B91C1C)}
 #print-report-root .dual-tracks .df.rec{background:linear-gradient(90deg,#123D2A,#40916C)}
 #print-report-root .dual-row .dv{font-size:9.5px;color:#5C6E60;line-height:1.25}
-#print-report-root .ef-charts{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-#print-report-root .ef-chart-card{border:1px solid #D0D9D0;border-radius:12px;padding:10px;background:#fff}
-#print-report-root .ef-chart-card h4{font-size:12px;font-weight:700;color:#0B2E1F;margin:0 0 2px;font-family:'Space Grotesk',sans-serif}
-#print-report-root .ef-chart-card .sub{font-size:10px;color:#5C6E60;margin-bottom:6px}
+#print-report-root .ef-charts{display:grid;grid-template-columns:1fr 1fr;gap:8px;page-break-inside:avoid}
+#print-report-root .ef-chart-card{border:1px solid #D0D9D0;border-radius:10px;padding:8px 10px;background:#fff;page-break-inside:avoid}
+#print-report-root .ef-chart-card h4{font-size:11px;font-weight:700;color:#0B2E1F;margin:0 0 1px;font-family:'Space Grotesk',sans-serif}
+#print-report-root .ef-chart-card .sub{font-size:9px;color:#5C6E60;margin-bottom:4px}
+#print-report-root .ef-legend{font-size:9px;gap:8px;margin-top:4px}
+#print-report-root .ef-sys-badge{
+  display:inline-block;font-size:11px;font-weight:700;color:#0B2E1F;
+  background:#F5E6B8;border:1px solid #C9A227;border-radius:8px;padding:4px 12px;margin:0 0 10px;
+}
+#print-report-root.ef-compact .pr-kpi{margin-bottom:8px}
+#print-report-root.ef-compact .pr-kpi .k{padding:8px 10px}
+#print-report-root.ef-compact .pr-kpi .k .v{font-size:18px}
+#print-report-root.ef-compact .pr-sec{padding:8px 10px;margin-bottom:8px}
 #print-report-root .prio-item{display:flex;align-items:flex-start;gap:8px;padding:8px;border-radius:8px;margin-bottom:6px;border:1px solid #E8EEE8;font-size:11px}
 #print-report-root .prio-item.crit{background:#FEE2E2;border-color:#fecaca}
 #print-report-root .prio-item.urgent{background:#FFE8D9;border-color:#fed7aa}
@@ -927,7 +936,7 @@ body.on-guia{
     <div class="kpi-row" id="kpi-efluentes"></div>
     <div class="panel" style="padding-bottom:8px">
       <h3>Parâmetros · medições por ano</h3>
-      <p class="panel-sub">Medições individuais · Fossa/Filtro: Entrada e Saída por ponto · limite aplica-se apenas à Saída</p>
+      <p class="panel-sub">Medições individuais · Fossa/Filtro: pares Entrada/Saída · limite aplica-se apenas à Saída (máx. e mín.)</p>
       <div class="ef-charts" id="ef-charts"></div>
     </div>
     <div class="panel">
@@ -2018,15 +2027,15 @@ function buildNotifications(){
   });
 
   (DATA.efluentes||[]).forEach(r=>{
-    // Fossa/Filtro: limite só na Saída; Entrada não gera alerta
     const sys = String(r.Sistema||'');
+    // Fossa/Filtro: alerta só para Saída
     if(/fossa|filtro/i.test(sys) && /entrada/i.test(sys)) return;
     const b = parseLimitBounds(r.Limite, r['Operador Limite']);
     const v = +r.Valor;
     if(isNaN(v)) return;
     let out=false, detail='';
-    if(b.max!=null && v>b.max){ out=true; detail='valor '+fmtN(v,2)+' > limite '+fmtN(b.max,2); }
-    if(b.min!=null && v<b.min){ out=true; detail='valor '+fmtN(v,2)+' < mínimo '+fmtN(b.min,2); }
+    if(b.max!=null && v>b.max){ out=true; detail='valor '+fmtN(v,2)+' > máx '+fmtN(b.max,2); }
+    if(b.min!=null && v<b.min){ out=true; detail='valor '+fmtN(v,2)+' < mín '+fmtN(b.min,2); }
     if(out){
       items.push({
         lvl:'urgent',
@@ -2147,21 +2156,18 @@ function parseFossaPonto(sistema){
   return { tipo:'Outro', n:'', label: s || '—' };
 }
 
-// Cores padrão: Entrada = verde · Saída = dourado (mesma cor em todos os pontos)
 const EF_COLOR_ENTRADA = '#1A4F36';
 const EF_COLOR_SAIDA = '#C9A227';
-const EF_COLOR_OVER = '#C05621'; // só Saída fora do limite
+const EF_COLOR_OVER = '#C05621';
 
 function efSeriesColor(label){
   if(/sa[ií]da/i.test(label)) return EF_COLOR_SAIDA;
-  if(/entrada/i.test(label)) return EF_COLOR_ENTRADA;
   return EF_COLOR_ENTRADA;
 }
 
-/** Multi-série com agrupamento Entrada N + Saída N e gap entre pontos */
+/** Multi-série: pares Entrada N + Saída N com gap maior entre pares; limite visível (máx e mín) */
 function efMultiChartSvg(years, series, bounds, height=190){
-  // series: [{name, values[], color, checkLimit:boolean}]
-  const pairs = []; // group by ponto number
+  const pairs = [];
   const used = new Set();
   series.forEach(s=>{
     if(used.has(s.name)) return;
@@ -2175,30 +2181,32 @@ function efMultiChartSvg(years, series, bounds, height=190){
       if(group.length) pairs.push(group);
     }
   });
-  // séries sem número (CSAO / genéricas)
   series.forEach(s=>{ if(!used.has(s.name)) pairs.push([s]); });
 
   const nPairs = Math.max(pairs.length,1);
   const barsPerYear = pairs.reduce((s,g)=>s+g.length,0) || 1;
-  const w = Math.max(360, 90 + years.length * Math.max(70, barsPerYear * 16 + nPairs * 10));
+  const w = Math.max(380, 100 + years.length * Math.max(80, barsPerYear * 18 + nPairs * 14));
   const h = height;
-  const padL=40, padR=12, padT=22, padB=38;
+  // padR maior para o rótulo do limite ficar fora da área das barras
+  const padL=42, padR=56, padT=26, padB=36;
   const plotW=w-padL-padR, plotH=h-padT-padB;
   const allNums = [];
   series.forEach(s=>(s.values||[]).forEach(v=>{ if(v!=null && !isNaN(v)) allNums.push(v); }));
   let yMax = Math.max(...allNums, bounds.max!=null?bounds.max:0, 0);
   let yMin = Math.min(...(allNums.length?allNums:[0]), bounds.min!=null?bounds.min:0, 0);
+  if(bounds.min!=null && bounds.min < yMin) yMin = bounds.min;
   if(yMax===yMin){ yMax = yMax||1; yMin=0; }
   const span = yMax-yMin || 1;
-  yMax = yMax + span*0.18;
-  if(yMin>0) yMin = Math.max(0, yMin - span*0.05);
+  yMax = yMax + span*0.22; // mais espaço acima para rótulo do limite
+  if(yMin>0) yMin = Math.max(0, yMin - span*0.08);
+  else if(bounds.min!=null && bounds.min < 0) yMin = bounds.min - span*0.05;
   const yScale = v => padT + plotH - ((v-yMin)/(yMax-yMin))*plotH;
 
   const nY = Math.max(years.length,1);
   const yearSlot = plotW / nY;
-  const pairGap = 8; // espaço entre (E1,S1) e (E2,S2)
-  const barGap = 1;
-  const barW = Math.min(16, Math.max(5, (yearSlot * 0.72 - (nPairs-1)*pairGap) / Math.max(barsPerYear,1)));
+  const pairGap = 16; // espaço entre pares (E1/S1) e (E2/S2)
+  const barGap = 2;
+  const barW = Math.min(18, Math.max(5, (yearSlot * 0.70 - (nPairs-1)*pairGap) / Math.max(barsPerYear,1)));
 
   let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="xMidYMid meet">`;
   for(let i=0;i<=3;i++){
@@ -2207,14 +2215,17 @@ function efMultiChartSvg(years, series, bounds, height=190){
     svg += `<line x1="${padL}" y1="${gy}" x2="${w-padR}" y2="${gy}" stroke="#E8EEE8" stroke-width="1"/>`;
     svg += `<text x="${padL-4}" y="${gy+3}" text-anchor="end" font-size="9" fill="#5C6E60">${fmtN(gv, gv>=10?0:1)}</text>`;
   }
+  // Limite máximo — linha + rótulo à direita (fora das barras)
   if(bounds.max!=null){
     const ly = yScale(bounds.max);
-    svg += `<line x1="${padL}" y1="${ly}" x2="${w-padR}" y2="${ly}" stroke="#B91C1C" stroke-width="1.5" stroke-dasharray="5 4"/>`;
-    svg += `<text x="${w-padR}" y="${ly-4}" text-anchor="end" font-size="9" fill="#B91C1C" font-weight="600">Limite ${fmtN(bounds.max, bounds.max>=10?0:1)}</text>`;
+    svg += `<line x1="${padL}" y1="${ly}" x2="${w-padR}" y2="${ly}" stroke="#B91C1C" stroke-width="1.8" stroke-dasharray="5 3"/>`;
+    svg += `<text x="${w-padR+4}" y="${ly+3}" text-anchor="start" font-size="9" fill="#B91C1C" font-weight="700">Máx ${fmtN(bounds.max, bounds.max>=10?0:2)}</text>`;
   }
+  // Limite mínimo — sempre exibe valor quando existir
   if(bounds.min!=null){
     const ly = yScale(bounds.min);
-    svg += `<line x1="${padL}" y1="${ly}" x2="${w-padR}" y2="${ly}" stroke="#C05621" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+    svg += `<line x1="${padL}" y1="${ly}" x2="${w-padR}" y2="${ly}" stroke="#C05621" stroke-width="1.8" stroke-dasharray="4 3"/>`;
+    svg += `<text x="${w-padR+4}" y="${ly+3}" text-anchor="start" font-size="9" fill="#C05621" font-weight="700">Mín ${fmtN(bounds.min, bounds.min>=10?0:2)}</text>`;
   }
 
   years.forEach((yr,yi)=>{
@@ -2222,14 +2233,13 @@ function efMultiChartSvg(years, series, bounds, height=190){
     let totalBarsW = 0;
     pairs.forEach((g,gi)=>{ totalBarsW += g.length*barW + (g.length-1)*barGap; if(gi<nPairs-1) totalBarsW += pairGap; });
     let x = slotX + (yearSlot - totalBarsW)/2;
-    pairs.forEach((group,gi)=>{
+    pairs.forEach((group)=>{
       group.forEach(s=>{
         const v = s.values[yi];
         if(v!=null && !isNaN(v)){
           const y0 = yScale(Math.max(0,yMin));
           const y1 = yScale(v);
           const top = Math.min(y0,y1), bh = Math.max(2, Math.abs(y0-y1));
-          // Limite só para Saída (checkLimit !== false e tipo Saída)
           const isSaida = /sa[ií]da/i.test(s.name) || s.checkLimit===true;
           const over = isSaida && ((bounds.max!=null && v>bounds.max) || (bounds.min!=null && v<bounds.min));
           const fill = over ? EF_COLOR_OVER : (s.color || efSeriesColor(s.name));
@@ -2240,7 +2250,7 @@ function efMultiChartSvg(years, series, bounds, height=190){
         }
         x += barW + barGap;
       });
-      x += pairGap - barGap; // gap entre pares
+      x += pairGap - barGap;
     });
     svg += `<text x="${slotX + yearSlot/2}" y="${h-10}" text-anchor="middle" font-size="10" fill="#5C6E60">${esc(String(yr))}</text>`;
   });
@@ -2261,27 +2271,29 @@ function renderEfluentes(){
   const rows = filteredEfluentes();
   const n = rows.length;
   const params = new Set(rows.map(r=>r.Parâmetro).filter(Boolean)).size;
-  // Conformidade: em Fossa/Filtro só Saída conta; em CSAO todas contam
   let ok=0, fail=0;
   rows.forEach(r=>{
     const isFossa = selectedEfSystem!=='CSAO';
     if(isFossa){
       const p = parseFossaPonto(r.Sistema);
-      if(p.tipo!=='Saída') return; // Entrada não entra no KPI de limite
+      if(p.tipo!=='Saída') return;
     }
     const lim = r.Limite;
     const val = +r.Valor;
     const op = String(r['Operador Limite']||'');
     if(lim==null||lim===''||isNaN(val)) return;
     const limN = parseFloat(String(lim).replace(',','.'));
-    if(isNaN(limN)) return;
-    if(op.includes('<=') || op.includes('≤') || op==='<='){ if(val<=limN) ok++; else fail++; }
-    else if(op.includes('<') && !op.includes('=')){ if(val<limN) ok++; else fail++; }
-    else if(op.toLowerCase().includes('entre')){
-      const b = parseLimitBounds(lim, op);
-      if(b.min!=null && b.max!=null){
-        if(val>=b.min && val<=b.max) ok++; else fail++;
-      }
+    const b = parseLimitBounds(lim, op);
+    if(op.includes('<=') || op.includes('≤') || op==='<='){
+      if(!isNaN(limN)){ if(val<=limN) ok++; else fail++; }
+    } else if(op.includes('<') && !op.includes('=')){
+      if(!isNaN(limN)){ if(val<limN) ok++; else fail++; }
+    } else if(b.min!=null && b.max!=null){
+      if(val>=b.min && val<=b.max) ok++; else fail++;
+    } else if(b.max!=null){
+      if(val<=b.max) ok++; else fail++;
+    } else if(b.min!=null){
+      if(val>=b.min) ok++; else fail++;
     }
   });
   document.getElementById('kpi-efluentes').innerHTML = `
@@ -2290,31 +2302,25 @@ function renderEfluentes(){
     <div class="kpi ok-edge"><div class="lbl">Dentro do limite</div><div class="val">${ok}</div><div class="sub">${selectedEfSystem==='CSAO'?'leituras ok':'somente saídas ok'}</div></div>
     <div class="kpi crit-edge"><div class="lbl">Acima do limite</div><div class="val">${fail}</div><div class="sub">${selectedEfSystem==='CSAO'?'requer atenção':'somente saídas'}</div></div>`;
 
-  // Por parâmetro: séries Entrada/Saída — valores individuais (sem somar)
   const byP = {};
   rows.forEach(r=>{
     const k = r.Parâmetro||'—';
     if(!byP[k]) byP[k]={ series:{}, lim:r.Limite, op:r['Operador Limite'] };
-    let seriesKey = 'CSAO';
-    if(selectedEfSystem!=='CSAO'){
-      seriesKey = parseFossaPonto(r.Sistema).label;
-    }
+    let seriesKey = selectedEfSystem==='CSAO' ? 'CSAO' : parseFossaPonto(r.Sistema).label;
     const yr = r.Ano!=null ? String(r.Ano) : '—';
     if(!byP[k].series[seriesKey]) byP[k].series[seriesKey] = {};
     const v = +r.Valor;
-    if(!isNaN(v)) byP[k].series[seriesKey][yr] = v; // última medição do ano/série, sem soma
+    if(!isNaN(v)) byP[k].series[seriesKey][yr] = v;
   });
 
-  const seriesOrder = (keys)=>{
-    return keys.sort((a,b)=>{
-      const pa = parseFossaPonto(a), pb = parseFossaPonto(b);
-      const na = parseInt(pa.n||'0',10), nb = parseInt(pb.n||'0',10);
-      if(na!==nb) return na-nb;
-      if(pa.tipo==='Entrada' && pb.tipo==='Saída') return -1;
-      if(pa.tipo==='Saída' && pb.tipo==='Entrada') return 1;
-      return a.localeCompare(b,'pt-BR');
-    });
-  };
+  const seriesOrder = (keys)=>keys.sort((a,b)=>{
+    const pa = parseFossaPonto(a), pb = parseFossaPonto(b);
+    const na = parseInt(pa.n||'0',10), nb = parseInt(pb.n||'0',10);
+    if(na!==nb) return na-nb;
+    if(pa.tipo==='Entrada' && pb.tipo==='Saída') return -1;
+    if(pa.tipo==='Saída' && pb.tipo==='Entrada') return 1;
+    return a.localeCompare(b,'pt-BR');
+  });
 
   const chartHtml = Object.entries(byP).map(([name,o])=>{
     const sKeys = seriesOrder(Object.keys(o.series));
@@ -2337,15 +2343,16 @@ function renderEfluentes(){
       ? `<span><i style="background:${EF_COLOR_ENTRADA}"></i> CSAO</span>`
       : `<span><i style="background:${EF_COLOR_ENTRADA}"></i> Entrada</span>
          <span><i style="background:${EF_COLOR_SAIDA}"></i> Saída</span>`;
-    const h = series.length > 2 ? 200 : 170;
+    const h = series.length > 2 ? 195 : 165;
     return `<div class="ef-chart-card">
       <h4>${esc(name)}</h4>
-      <div class="sub">Medições individuais · limite: ${esc(opTxt+limTxt)}${selectedEfSystem!=='CSAO'?' · aplicável à Saída':''}</div>
+      <div class="sub">Medições individuais · limite: ${esc(opTxt+limTxt)}${selectedEfSystem!=='CSAO'?' · só Saída':''}</div>
       <div class="ef-svg-wrap" style="height:auto">${efMultiChartSvg(years, series, bounds, h)}</div>
       <div class="ef-legend">
         ${legend}
-        <span><i class="lim"></i> limite</span>
-        ${selectedEfSystem!=='CSAO'?`<span><i style="background:${EF_COLOR_OVER}"></i> saída acima do limite</span>`:''}
+        ${bounds.max!=null?`<span><i class="lim"></i> máx ${esc(fmtN(bounds.max, bounds.max>=10?0:2))}</span>`:''}
+        ${bounds.min!=null?`<span><i style="width:16px;height:0;border-top:2px dashed #C05621;background:transparent"></i> mín ${esc(fmtN(bounds.min, bounds.min>=10?0:2))}</span>`:''}
+        ${selectedEfSystem!=='CSAO'?`<span><i style="background:${EF_COLOR_OVER}"></i> saída fora</span>`:''}
       </div>
     </div>`;
   }).join('');
@@ -3012,7 +3019,12 @@ function reportPeriodTitle(){
   const mes = filters.mes || 'Todos os meses';
   const unit = selectedUnit || 'Todas as unidades';
   const ano = filters.ano || 'todos os anos';
-  return `Relatório de ${mes} de ${ano} | ${unit}`;
+  let t = `Relatório de ${mes} de ${ano} | ${unit}`;
+  if(selectedModule==='efluentes'){
+    const sys = selectedEfSystem==='CSAO' ? 'CSAO' : 'Fossa / Filtro';
+    t += ` | ${sys}`;
+  }
+  return t;
 }
 function reportHeaderHtml(){
   const mod = MODULE_LABELS[selectedModule] || '';
@@ -3302,18 +3314,22 @@ function buildFinancasReportBody(){
 function buildEfluentesReportBody(){
   let kpis = kpiCardsFromDom('kpi-efluentes');
   let charts = cloneInner('ef-charts');
+  const sysLabel = selectedEfSystem==='CSAO' ? 'CSAO' : 'Fossa / Filtro';
   if(!kpis){
     const rows = filteredEfluentes();
     const n = rows.length;
     const nParams = new Set(rows.map(r=>r.Parâmetro).filter(Boolean)).size;
     kpis = kpiCardsFromList([
-      {l:'Medições', v:String(n), s: selectedEfSystem==='CSAO'?'CSAO':'Fossa / Filtro'},
+      {l:'Medições', v:String(n), s: sysLabel},
       {l:'Parâmetros', v:String(nParams), s:'monitorados'}
     ]);
   }
-  return kpis + `
-    <div class="pr-sec"><h3>Parâmetros · medições por ano</h3>
-      <div class="ps">Medições individuais · Fossa/Filtro: Entrada e Saída · limite só na Saída</div>
+  return `
+    <div class="ef-sys-badge">Sistema: ${esc(sysLabel)}</div>
+    ${kpis}
+    <div class="pr-sec" style="page-break-inside:avoid">
+      <h3>Parâmetros · medições por ano · ${esc(sysLabel)}</h3>
+      <div class="ps">Medições individuais · pares Entrada/Saída · limite (máx/mín) só na Saída</div>
       <div class="ef-charts">${orEmpty(charts)}</div>
     </div>`;
 }
@@ -3418,13 +3434,15 @@ async function printReport(){
     return;
   }
   root.innerHTML = html;
+  root.classList.toggle('ef-compact', selectedModule==='efluentes');
 
   const btn = document.querySelector('.btn-print-report');
   if(btn){ btn.disabled = true; btn.textContent = 'Gerando PDF…'; }
 
   // Coloca o relatório na viewport para o html2canvas conseguir capturar
   root.classList.add('capturing');
-  root.style.cssText = 'position:fixed;left:0;top:0;width:794px;max-width:100%;background:#ffffff;color:#0C1A12;padding:28px 32px;box-sizing:border-box;z-index:99999;opacity:1;pointer-events:none;transform:none;overflow:visible;';
+  const pad = selectedModule==='efluentes' ? '16px 20px' : '28px 32px';
+  root.style.cssText = `position:fixed;left:0;top:0;width:794px;max-width:100%;background:#ffffff;color:#0C1A12;padding:${pad};box-sizing:border-box;z-index:99999;opacity:1;pointer-events:none;transform:none;overflow:visible;`;
   // Força reflow
   void root.offsetHeight;
 
@@ -3432,7 +3450,7 @@ async function printReport(){
   await new Promise(r=>setTimeout(r, 250));
 
   const opt = {
-    margin: [8, 8, 10, 8],
+    margin: selectedModule==='efluentes' ? [6, 6, 8, 6] : [8, 8, 10, 8],
     filename: reportFileName(),
     image: { type: 'jpeg', quality: 0.95 },
     html2canvas: {
@@ -3498,6 +3516,7 @@ async function printReport(){
     }
   }finally{
     root.classList.remove('capturing');
+    root.classList.remove('ef-compact');
     root.style.cssText = '';
     root.innerHTML = '';
     if(btn){ btn.disabled = false; btn.textContent = 'Imprimir Relatório'; }
