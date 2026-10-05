@@ -718,8 +718,8 @@ body.on-guia{
 }
 .ef-chart-card h4{font-size:13.5px; font-weight:700; color:var(--navy); margin:0 0 2px; font-family:'Space Grotesk',sans-serif}
 .ef-chart-card .sub{font-size:11px; color:var(--muted); margin-bottom:10px}
-.ef-svg-wrap{width:100%; height:auto; min-height:150px; overflow:visible}
-.ef-svg-wrap svg{display:block; width:100%; height:auto; overflow:visible}
+.ef-svg-wrap{width:100%; height:auto; min-height:120px; overflow:visible}
+.ef-svg-wrap svg{display:block; width:100%; max-width:100%; height:auto; overflow:visible; shape-rendering:geometricPrecision}
 .ef-legend{display:flex; gap:14px; flex-wrap:wrap; margin-top:8px; font-size:11px; color:var(--muted)}
 .ef-legend span{display:inline-flex; align-items:center; gap:6px}
 .ef-legend i{width:10px; height:10px; border-radius:2px; display:inline-block}
@@ -918,7 +918,7 @@ body.on-guia{
       <div id="chart-fin-vendas"></div>
     </div>
     <div class="grid2">
-      <div class="panel"><h3>Resíduos vendidos</h3><p class="panel-sub">Participação da receita por tipo (%)</p><div id="pie-fin-vendidos"></div></div>
+      <div class="panel"><h3>Resíduos vendidos</h3><p class="panel-sub">Participação da receita por tipo (% e R$)</p><div id="pie-fin-vendidos"></div></div>
       <div class="panel"><h3>Receita por destinatário</h3><p class="panel-sub">Valorização (R$) por empresa · top 12</p><div id="bars-fin-dest"></div></div>
     </div>
     <div class="panel">
@@ -1661,7 +1661,8 @@ function barList(items, maxKey){
       <div class="num">${i.label}</div></div>`;
   }).join('') || '<div class="empty-state">Sem dados</div>';
 }
-function pieSvg(parts){
+function pieSvg(parts, opts){
+  opts = opts || {};
   const total = parts.reduce((s,p)=>s+p.v,0) || 1;
   const colors = ['#0B2E1F','#1A4F36','#C9A227','#2D6A4F','#40916C','#8B6914','#3D4F42','#5C6E60'];
   let ang = 0;
@@ -1676,8 +1677,12 @@ function pieSvg(parts){
     const d = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`;
     return `<path d="${d}" fill="${colors[i%colors.length]}"/>`;
   }).join('');
-  const legend = parts.map((p,i)=>`<span><i style="background:${colors[i%colors.length]}"></i>${esc(p.name)} <b>${((p.v/total)*100).toFixed(0)}%</b></span>`).join('');
-  return `<div class="pie-wrap"><svg width="120" height="120" viewBox="0 0 120 120">${paths}</svg><div class="pie-legend">${legend}</div></div>`;
+  const legend = parts.map((p,i)=>{
+    const pct = ((p.v/total)*100).toFixed(0);
+    const money = opts.showMoney ? ` · ${fmtR(p.v)}` : '';
+    return `<span><i style="background:${colors[i%colors.length]}"></i>${esc(p.name)} <b>${pct}%</b>${money}</span>`;
+  }).join('');
+  return `<div class="pie-wrap"><svg width="120" height="120" viewBox="0 0 120 120" shape-rendering="geometricPrecision">${paths}</svg><div class="pie-legend">${legend}</div></div>`;
 }
 function dualBarChart(labels, custos, receitas){
   if(!labels.length) return '<div class="empty-state">Sem dados</div>';
@@ -1967,7 +1972,7 @@ function renderFinancas(){
   });
   const tipoRecArr = Object.entries(byTipoRec).map(([name,v])=>({name,v})).sort((a,b)=>b.v-a.v);
   const pieEl = document.getElementById('pie-fin-vendidos');
-  if(pieEl) pieEl.innerHTML = pieSvg(tipoRecArr) || '<div class="empty-state">Sem receitas no filtro</div>';
+  if(pieEl) pieEl.innerHTML = pieSvg(tipoRecArr, {showMoney:true}) || '<div class="empty-state">Sem receitas no filtro</div>';
 
   // Barras por destinatário (campo Destinador nos dados de receita)
   const byDest = {};
@@ -2292,9 +2297,9 @@ const EF_COLOR_SAIDA = '#C9A227';
 const EF_COLOR_OVER = '#C05621';
 
 /** SVG multi-série: pares Entrada N + Saída N, gap entre pares; limites máx/mín visíveis à direita */
-function efMultiChartSvg(years, series, bounds, height=180){
+function efMultiChartSvg(years, series, bounds, height=150){
   // series: [{name, values:[], checkLimit:bool}]
-  // Agrupa em pares por número do ponto
+  // Agrupa em pares por número do ponto (Entrada N junto de Saída N)
   const byN = {};
   const orphans = [];
   series.forEach(s=>{
@@ -2318,9 +2323,10 @@ function efMultiChartSvg(years, series, bounds, height=180){
 
   const nPairs = Math.max(pairs.length, 1);
   const barsPerYear = pairs.reduce((acc,g)=>acc+g.length, 0) || 1;
-  const w = Math.max(360, 90 + years.length * Math.max(72, barsPerYear * 16 + nPairs * 12));
+  // Largura um pouco menor; mais espaço entre pares
+  const w = Math.max(320, 80 + years.length * Math.max(64, barsPerYear * 14 + nPairs * 18));
   const h = height;
-  const padL = 40, padR = 54, padT = 24, padB = 34;
+  const padL = 38, padR = 52, padT = 22, padB = 30;
   const plotW = w - padL - padR, plotH = h - padT - padB;
 
   const allNums = [];
@@ -2337,26 +2343,26 @@ function efMultiChartSvg(years, series, bounds, height=180){
 
   const nY = Math.max(years.length, 1);
   const yearSlot = plotW / nY;
-  const pairGap = 14;
-  const barGap = 2;
-  const barW = Math.min(16, Math.max(5, (yearSlot * 0.72 - (nPairs - 1) * pairGap) / Math.max(barsPerYear, 1)));
+  const pairGap = 22;   // espaço entre pares Entrada/Saída
+  const barGap = 3;     // espaço dentro do par
+  const barW = Math.min(12, Math.max(4, (yearSlot * 0.62 - (nPairs - 1) * pairGap) / Math.max(barsPerYear, 1)));
 
-  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet">`;
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" preserveAspectRatio="xMidYMid meet" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">`;
   for(let i=0;i<=3;i++){
     const gy = padT + (plotH * i / 3);
     const gv = yMax - (yMax - yMin) * i / 3;
     svg += `<line x1="${padL}" y1="${gy}" x2="${w-padR}" y2="${gy}" stroke="#E8EEE8" stroke-width="1"/>`;
-    svg += `<text x="${padL-4}" y="${gy+3}" text-anchor="end" font-size="9" fill="#5C6E60">${fmtN(gv, gv>=10?0:1)}</text>`;
+    svg += `<text x="${padL-4}" y="${gy+3}" text-anchor="end" font-size="9" fill="#5C6E60" font-family="Inter,system-ui,sans-serif">${fmtN(gv, gv>=10?0:1)}</text>`;
   }
   if(bounds.max!=null){
     const ly = yScale(bounds.max);
-    svg += `<line x1="${padL}" y1="${ly}" x2="${w-padR}" y2="${ly}" stroke="#B91C1C" stroke-width="1.8" stroke-dasharray="5 3"/>`;
-    svg += `<text x="${w-padR+3}" y="${ly+3}" text-anchor="start" font-size="9" fill="#B91C1C" font-weight="700">Máx ${fmtN(bounds.max, bounds.max>=10?0:2)}</text>`;
+    svg += `<line x1="${padL}" y1="${ly}" x2="${w-padR}" y2="${ly}" stroke="#B91C1C" stroke-width="1.6" stroke-dasharray="5 3"/>`;
+    svg += `<text x="${w-padR+3}" y="${ly+3}" text-anchor="start" font-size="9" fill="#B91C1C" font-weight="700" font-family="Inter,system-ui,sans-serif">Máx ${fmtN(bounds.max, bounds.max>=10?0:2)}</text>`;
   }
   if(bounds.min!=null){
     const ly = yScale(bounds.min);
-    svg += `<line x1="${padL}" y1="${ly}" x2="${w-padR}" y2="${ly}" stroke="#C05621" stroke-width="1.8" stroke-dasharray="4 3"/>`;
-    svg += `<text x="${w-padR+3}" y="${ly+3}" text-anchor="start" font-size="9" fill="#C05621" font-weight="700">Mín ${fmtN(bounds.min, bounds.min>=10?0:2)}</text>`;
+    svg += `<line x1="${padL}" y1="${ly}" x2="${w-padR}" y2="${ly}" stroke="#C05621" stroke-width="1.6" stroke-dasharray="4 3"/>`;
+    svg += `<text x="${w-padR+3}" y="${ly+3}" text-anchor="start" font-size="9" fill="#C05621" font-weight="700" font-family="Inter,system-ui,sans-serif">Mín ${fmtN(bounds.min, bounds.min>=10?0:2)}</text>`;
   }
 
   years.forEach((yr, yi)=>{
@@ -2374,16 +2380,16 @@ function efMultiChartSvg(years, series, bounds, height=180){
           const isSaida = s.checkLimit === true || /sa[ií]da/i.test(s.name);
           const over = isSaida && ((bounds.max!=null && v>bounds.max) || (bounds.min!=null && v<bounds.min));
           const fill = over ? EF_COLOR_OVER : (/sa[ií]da/i.test(s.name) ? EF_COLOR_SAIDA : EF_COLOR_ENTRADA);
-          svg += `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${barW}" height="${bh.toFixed(1)}" rx="2" fill="${fill}"/>`;
+          svg += `<rect x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" rx="2" fill="${fill}"/>`;
           if(barsPerYear <= 6){
-            svg += `<text x="${(x+barW/2).toFixed(1)}" y="${(top-3).toFixed(1)}" text-anchor="middle" font-size="8" font-weight="700" fill="#0C1A12">${fmtN(v, v>=10?1:1)}</text>`;
+            svg += `<text x="${(x+barW/2).toFixed(1)}" y="${(top-3).toFixed(1)}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#0C1A12" font-family="Inter,system-ui,sans-serif">${fmtN(v, v>=10?1:1)}</text>`;
           }
         }
         x += barW + barGap;
       });
       x += pairGap - barGap;
     });
-    svg += `<text x="${(slotX + yearSlot/2).toFixed(1)}" y="${h-8}" text-anchor="middle" font-size="10" fill="#5C6E60">${esc(String(yr))}</text>`;
+    svg += `<text x="${(slotX + yearSlot/2).toFixed(1)}" y="${h-8}" text-anchor="middle" font-size="10" fill="#5C6E60" font-family="Inter,system-ui,sans-serif">${esc(String(yr))}</text>`;
   });
   svg += '</svg>';
   return svg;
@@ -2416,7 +2422,7 @@ function buildEfluentesChartsHtml(rows, forPrint){
     return a.localeCompare(b, 'pt-BR');
   });
 
-  const hChart = forPrint ? (isFossa ? 150 : 130) : (isFossa ? 185 : 160);
+  const hChart = forPrint ? (isFossa ? 132 : 118) : (isFossa ? 158 : 138);
   const cards = Object.entries(byP).map(([name, o])=>{
     const sKeys = orderKeys(Object.keys(o.series));
     const yearSet = new Set();
@@ -3629,7 +3635,7 @@ function buildFinancasReportBody(){
     byTipoRec[k] = (byTipoRec[k]||0) + (+r['Receita (R$)']||0);
   });
   const tipoRecArr = Object.entries(byTipoRec).map(([name,v])=>({name,v})).sort((a,b)=>b.v-a.v);
-  const pieVendidos = pieSvg(tipoRecArr);
+  const pieVendidos = pieSvg(tipoRecArr, {showMoney:true});
 
   // Barras por destinatário (campo Destinador nos dados de receita)
   const byDest = {};
