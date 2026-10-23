@@ -871,6 +871,22 @@ th.th-filter .th-btn.has{background:var(--gold);color:var(--navy);border-color:v
 .cal-event.open .ce-detail{display:block}
 .cal-event .ce-detail div{padding:3px 0;display:flex;justify-content:space-between;gap:8px}
 
+
+.lic-hub-bg{
+  margin:0 -24px; padding:36px 28px 48px;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 20%,rgba(64,145,108,.16),transparent 55%),
+    radial-gradient(ellipse 60% 40% at 90% 80%,rgba(201,162,39,.12),transparent 50%),
+    linear-gradient(155deg,var(--navy) 0%,var(--navy-2) 45%,var(--teal) 100%);
+  border-radius:18px; text-align:center; color:#fff;
+}
+.lic-hub-title{
+  font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;margin:0 0 8px;color:#fff;
+}
+.lic-hub-sub{font-size:13px;opacity:.8;margin:0 auto 28px;max-width:480px;line-height:1.45}
+.lic-hub .guia-grid{grid-template-columns:repeat(2,1fr)!important;max-width:720px}
+.lic-hub .guia-card{text-align:left}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -1660,8 +1676,9 @@ function tfMatch(key, value){
 function filteredResiduos(){
   return DATA.residuos.filter(r=>{
     if(!matchUnit(r.Unidade)) return false;
-    if(!tfMatch('ano', r.Ano!=null?String(r.Ano):'')) return false;
-    if(!tfMatch('mes', r.Mês||'')) return false;
+    // Top filters win for ano/mês
+    if(filters.ano && String(r.Ano)!==String(filters.ano)) return false;
+    if(filters.mes && r.Mês!==filters.mes) return false;
     if(!tfMatch('unidade', r.Unidade||'')) return false;
     if(!tfMatch('data', r.Data?String(r.Data).slice(0,10):'')) return false;
     if(!tfMatch('mtr', r.MTR||'')) return false;
@@ -1675,8 +1692,8 @@ function filteredResiduos(){
 function filteredReceitas(){
   return DATA.receitas.filter(r=>{
     if(!matchUnit(r.Unidade)) return false;
-    if(!tfMatch('ano', r.Ano!=null?String(r.Ano):'')) return false;
-    if(!tfMatch('mes', r.Mês||'')) return false;
+    if(filters.ano && String(r.Ano)!==String(filters.ano)) return false;
+    if(filters.mes && r.Mês!==filters.mes) return false;
     if(!tfMatch('unidade', r.Unidade||'')) return false;
     if(!tfMatch('mtr', r.MTR||'')) return false;
     if(!tfMatch('residuo', r.Resíduo||r.Residuo||'')) return false;
@@ -1772,11 +1789,16 @@ function enterLicTab(tab){
   const p = document.querySelector('#view-licencas .page-h p');
   if(h1) h1.textContent = tab==='fornecedores' ? 'Licenças · Fornecedores' : 'Licenças · Carmak';
   if(p) p.textContent = tab==='fornecedores'
-    ? 'Documentos e prazos de fornecedores parceiros'
+    ? 'Documentos e prazos de fornecedores parceiros · adicionar, editar e excluir'
     : 'Conformidade legal · ISO 14001 · Plano de renovação';
+  updateChrome();
   renderFilters();
   if(tab==='carmak') refreshLicencasAndRender();
-  else { loadLocalData(); renderLicencas(); }
+  else {
+    loadLocalData();
+    syncModulesFromCloud().then(()=>renderLicencas());
+    renderLicencas();
+  }
 }
 function backLicHub(){
   document.getElementById('lic-content')?.classList.remove('on');
@@ -1991,16 +2013,18 @@ function renderFilters(){
   const printBtn = `<button type="button" class="btn-print-report" onclick="printReport()">Imprimir Relatório</button>`;
   const scope = unitScopeHtml();
   if(selectedModule==='residuos'){
-    document.getElementById('filt-residuos').innerHTML = scope +
+    document.getElementById('filt-residuos').innerHTML = scope + commonAnoMes('fr') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openResModal(null)">+ Novo resíduo</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadResiduosFromCloud().then(()=>{renderFilters();renderResiduos();})">↻ Atualizar</button>` +
       printBtn;
+    bindFilter('fr-ano','fr-mes');
   } else if(selectedModule==='financas'){
-    document.getElementById('filt-financas').innerHTML = scope +
+    document.getElementById('filt-financas').innerHTML = scope + commonAnoMes('ff') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openRecModal(null)">+ Nova receita</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="openResModal(null)">+ Novo custo (resíduo)</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="Promise.all([loadResiduosFromCloud(),loadReceitasFromCloud()]).then(()=>{renderFilters();renderFinancas();})">↻ Atualizar</button>` +
       printBtn;
+    bindFilter('ff-ano','ff-mes');
     } else if(selectedModule==='efluentes'){
     document.getElementById('filt-efluentes').innerHTML = scope + commonAnoMes('fe') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openEfModal(null)">+ Nova medição</button>
