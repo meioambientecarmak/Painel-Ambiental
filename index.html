@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meio Ambiente · Carmak · Gestão Ambiental</title>
-<!-- MA-BUILD: 2026-10-23-docs-v1 -->
+<!-- MA-BUILD: 2026-10-23-docs-v2 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -3315,7 +3315,7 @@ async function saveLicenca(){
       doc_path = up.path;
       doc_nome = up.nome;
     }
-    const payload = {
+    const basePayload = {
       id,
       cnpj: emptyToNull(document.getElementById('lic_cnpj').value),
       localidade: emptyToNull(document.getElementById('lic_localidade').value),
@@ -3326,15 +3326,29 @@ async function saveLicenca(){
       data_solicitacao: emptyToNull(document.getElementById('lic_data_sol').value),
       valida_ate: emptyToNull(document.getElementById('lic_valida').value),
       status: document.getElementById('lic_status').value || null,
-      observacoes: emptyToNull(document.getElementById('lic_obs').value),
+      observacoes: emptyToNull(document.getElementById('lic_obs').value)
+    };
+    const payload = {
+      ...basePayload,
       doc_url: doc_path,
       doc_nome: doc_nome,
       doc_atualizado_em: file ? new Date().toISOString() : undefined
     };
-    // remove undefined keys
     Object.keys(payload).forEach(k=>{ if(payload[k]===undefined) delete payload[k]; });
     const table = isForn ? 'licencas_fornecedores' : 'licencas';
-    const { error } = await sb.from(table).upsert(payload);
+    let { error } = await sb.from(table).upsert(payload);
+    // Schema sem colunas de documento → tenta gravar a licença e avisa
+    if(error && /schema|column|doc_url|doc_nome|incompatible/i.test(error.message||'')){
+      console.warn('[MA] upsert com doc falhou, tentando sem doc_*', error.message);
+      ({ error } = await sb.from(table).upsert(basePayload));
+      if(!error){
+        alert('Licença salva, mas as colunas de PDF ainda não existem no Supabase.\n\nExecute no SQL Editor:\n\nalter table public.'+table+'\n  add column if not exists doc_url text,\n  add column if not exists doc_nome text,\n  add column if not exists doc_atualizado_em timestamptz;\n\nDepois: Settings → API → Reload schema.');
+        closeLicModal();
+        if(isForn){ await loadLicencasFornecedoresFromCloud(); renderLicencas(); }
+        else { await refreshLicencasAndRender(); }
+        return;
+      }
+    }
     if(error) throw error;
     closeLicModal();
     if(isForn){
