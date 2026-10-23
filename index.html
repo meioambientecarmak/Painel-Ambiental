@@ -815,6 +815,62 @@ body.on-guia{
 }
 .insp-list-item:hover{border-color:var(--gold)}
 
+
+/* Table header multi-filters */
+th.th-filter{position:relative;vertical-align:bottom;min-width:90px}
+th.th-filter .th-label{display:block;margin-bottom:4px}
+th.th-filter .th-dd{
+  position:relative;display:block;
+}
+th.th-filter .th-btn{
+  appearance:none;width:100%;border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.12);
+  color:#fff;font-size:10px;font-weight:600;padding:3px 6px;border-radius:6px;cursor:pointer;text-align:left;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px;
+}
+th.th-filter .th-btn:hover{background:rgba(255,255,255,.22)}
+th.th-filter .th-btn.has{background:var(--gold);color:var(--navy);border-color:var(--gold)}
+.th-panel{
+  display:none;position:absolute;top:100%;left:0;z-index:50;min-width:180px;max-width:260px;
+  max-height:220px;overflow:auto;background:#fff;color:var(--ink);border:1px solid var(--line);
+  border-radius:10px;box-shadow:var(--shadow-lg);padding:8px;margin-top:4px;
+}
+.th-panel.open{display:block}
+.th-panel label{
+  display:flex;align-items:flex-start;gap:6px;font-size:11.5px;padding:4px 2px;cursor:pointer;
+  text-transform:none;letter-spacing:0;font-weight:500;color:var(--ink);
+}
+.th-panel label input{margin-top:2px;accent-color:var(--ok)}
+.th-panel .th-actions{display:flex;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
+.th-panel .th-actions button{
+  appearance:none;border:1px solid var(--line);background:var(--tint);border-radius:6px;
+  font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;color:var(--ink);
+}
+.lic-hub{display:none}
+.lic-hub.on{display:block}
+.lic-content{display:none}
+.lic-content.on{display:block}
+.btn-back-lic{
+  appearance:none;border:1px solid var(--line-2);background:#fff;color:var(--navy);
+  padding:8px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;
+}
+.btn-back-lic:hover{border-color:var(--gold);background:var(--gold-soft)}
+.cal-day{min-height:78px!important}
+.cal-day .dn{font-size:14px!important}
+.cal-day .dots{gap:3px!important;margin-top:4px!important}
+.cal-day .dot-mtr,.cal-day .dot-rem,.cal-day .dot-act{
+  width:10px!important;height:10px!important;border-radius:50%;
+}
+.cal-event{
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;
+  background:var(--tint-2);cursor:pointer;font-size:12px;transition:border-color .15s;
+}
+.cal-event:hover{border-color:var(--gold)}
+.cal-event .ce-title{font-weight:700;color:var(--navy);margin-bottom:2px}
+.cal-event .ce-sub{font-size:11.5px;color:var(--ink-2)}
+.cal-event .ce-detail{display:none;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:11.5px}
+.cal-event.open .ce-detail{display:block}
+.cal-event .ce-detail div{padding:3px 0;display:flex;justify-content:space-between;gap:8px}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -1485,6 +1541,9 @@ let selectedEfSystem = 'CSAO';
 let selectedUnitGroup = null; // 'Filial' | 'Operacao' | null
 let screen = 'guia';
 const filters = { ano:'', mes:'', status:'', venc:'', categoria:'', mtr:'', residuo:'', transportador:'', destinatario:'' };
+/** multi-select table header filters: { colKey: Set of selected values } empty set = all */
+let tableFilters = {};
+
 let licTab = 'carmak';
 let calCursor = new Date();
 let calSelectedDate = null;
@@ -1500,6 +1559,7 @@ function clearFilters(){
   filters.residuo = '';
   filters.transportador = '';
   filters.destinatario = '';
+  tableFilters = {};
   selectedUnit = '';
   selectedUnitGroup = null;
   selectedEfSystem = 'CSAO';
@@ -1591,29 +1651,96 @@ function matchLoc(loc){
   if(/fibraplac/i.test(U) && /fibraplac/i.test(L)) return true;
   return L.indexOf(U) >= 0 || U.indexOf(L.split('/')[0]) >= 0;
 }
+function tfMatch(key, value){
+  const set = tableFilters[key];
+  if(!set || set.size===0) return true;
+  const v = value==null || value==='' ? '—' : String(value);
+  return set.has(v);
+}
 function filteredResiduos(){
   return DATA.residuos.filter(r=>{
     if(!matchUnit(r.Unidade)) return false;
-    if(filters.ano && String(r.Ano)!==String(filters.ano)) return false;
-    if(filters.mes && r.Mês!==filters.mes) return false;
-    if(filters.mtr && String(r.MTR||'')!==String(filters.mtr)) return false;
-    if(filters.residuo && String(r.Resíduo||r.Residuo||'')!==String(filters.residuo)) return false;
-    if(filters.transportador && String(r.Transportador||'')!==String(filters.transportador)) return false;
-    if(filters.destinatario && String(r.Destinatário||r.Destinatario||'')!==String(filters.destinatario)) return false;
+    if(!tfMatch('ano', r.Ano!=null?String(r.Ano):'')) return false;
+    if(!tfMatch('mes', r.Mês||'')) return false;
+    if(!tfMatch('unidade', r.Unidade||'')) return false;
+    if(!tfMatch('data', r.Data?String(r.Data).slice(0,10):'')) return false;
+    if(!tfMatch('mtr', r.MTR||'')) return false;
+    if(!tfMatch('residuo', r.Resíduo||r.Residuo||'')) return false;
+    if(!tfMatch('tecnologia', r.Tecnologia||'')) return false;
+    if(!tfMatch('transportador', r.Transportador||'')) return false;
+    if(!tfMatch('destinatario', r.Destinatário||r.Destinatario||'')) return false;
     return true;
   });
 }
 function filteredReceitas(){
   return DATA.receitas.filter(r=>{
     if(!matchUnit(r.Unidade)) return false;
-    if(filters.ano && String(r.Ano)!==String(filters.ano)) return false;
-    if(filters.mes && r.Mês!==filters.mes) return false;
-    if(filters.mtr && String(r.MTR||'')!==String(filters.mtr)) return false;
-    if(filters.residuo && String(r.Resíduo||r.Residuo||'')!==String(filters.residuo)) return false;
-    if(filters.destinatario && String(r.Destinador||r.Destinatário||r.Destinatario||'')!==String(filters.destinatario)) return false;
+    if(!tfMatch('ano', r.Ano!=null?String(r.Ano):'')) return false;
+    if(!tfMatch('mes', r.Mês||'')) return false;
+    if(!tfMatch('unidade', r.Unidade||'')) return false;
+    if(!tfMatch('mtr', r.MTR||'')) return false;
+    if(!tfMatch('residuo', r.Resíduo||r.Residuo||'')) return false;
+    if(!tfMatch('destinatario', r.Destinador||r.Destinatário||r.Destinatario||'')) return false;
+    if(!tfMatch('origem', 'Receita')) return false;
     return true;
   });
 }
+function buildThFilter(key, label, values){
+  const opts = [...new Set(values.map(v=>v==null||v===''?'—':String(v)))].sort((a,b)=>a.localeCompare(b,'pt-BR',{numeric:true}));
+  const selected = tableFilters[key] || new Set();
+  const has = selected.size>0;
+  const btnLabel = has ? (selected.size===1 ? [...selected][0] : selected.size+' sel.') : 'Todos';
+  const checks = opts.slice(0,80).map(v=>{
+    const id = 'tf_'+key+'_'+String(v).replace(/\W/g,'_').slice(0,40);
+    const on = selected.has(v);
+    return `<label><input type="checkbox" data-tf-key="${esc(key)}" data-tf-val="${esc(v)}" ${on?'checked':''}> ${esc(v)}</label>`;
+  }).join('');
+  return `<th class="th-filter">
+    <span class="th-label">${esc(label)}</span>
+    <div class="th-dd">
+      <button type="button" class="th-btn ${has?'has':''}" onclick="toggleThPanel(event,'${esc(key)}')">${esc(btnLabel)} ▾</button>
+      <div class="th-panel" id="th-panel-${esc(key)}">
+        ${checks || '<div style="font-size:11px;color:#888">Sem opções</div>'}
+        <div class="th-actions">
+          <button type="button" onclick="clearThFilter('${esc(key)}')">Limpar</button>
+          <button type="button" onclick="applyThFilter('${esc(key)}')">Aplicar</button>
+        </div>
+      </div>
+    </div>
+  </th>`;
+}
+function toggleThPanel(ev, key){
+  ev.stopPropagation();
+  document.querySelectorAll('.th-panel.open').forEach(p=>{
+    if(p.id!=='th-panel-'+key) p.classList.remove('open');
+  });
+  const p = document.getElementById('th-panel-'+key);
+  if(p) p.classList.toggle('open');
+}
+function applyThFilter(key){
+  const panel = document.getElementById('th-panel-'+key);
+  if(!panel) return;
+  const set = new Set();
+  panel.querySelectorAll('input[type=checkbox]:checked').forEach(cb=>{
+    set.add(cb.getAttribute('data-tf-val'));
+  });
+  tableFilters[key] = set;
+  panel.classList.remove('open');
+  renderData();
+}
+function clearThFilter(key){
+  tableFilters[key] = new Set();
+  const panel = document.getElementById('th-panel-'+key);
+  if(panel) panel.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.checked=false);
+  panel?.classList.remove('open');
+  renderData();
+}
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.th-filter')){
+    document.querySelectorAll('.th-panel.open').forEach(p=>p.classList.remove('open'));
+  }
+});
+
 function filteredEfluentes(){
   return DATA.efluentes.filter(r=>{
     if(!matchUnit(r.Unidade)) return false;
@@ -1636,11 +1763,30 @@ function getLicSource(){
 }
 function setLicTab(tab){
   licTab = tab==='fornecedores' ? 'fornecedores' : 'carmak';
-  document.getElementById('tab-lic-carmak')?.classList.toggle('active', licTab==='carmak');
-  document.getElementById('tab-lic-forn')?.classList.toggle('active', licTab==='fornecedores');
-  renderFilters();
-  renderLicencas();
 }
+function enterLicTab(tab){
+  setLicTab(tab);
+  document.getElementById('lic-hub')?.classList.remove('on');
+  document.getElementById('lic-content')?.classList.add('on');
+  const h1 = document.querySelector('#view-licencas .page-h h1');
+  const p = document.querySelector('#view-licencas .page-h p');
+  if(h1) h1.textContent = tab==='fornecedores' ? 'Licenças · Fornecedores' : 'Licenças · Carmak';
+  if(p) p.textContent = tab==='fornecedores'
+    ? 'Documentos e prazos de fornecedores parceiros'
+    : 'Conformidade legal · ISO 14001 · Plano de renovação';
+  renderFilters();
+  if(tab==='carmak') refreshLicencasAndRender();
+  else { loadLocalData(); renderLicencas(); }
+}
+function backLicHub(){
+  document.getElementById('lic-content')?.classList.remove('on');
+  document.getElementById('lic-hub')?.classList.add('on');
+  const h1 = document.querySelector('#view-licencas .page-h h1');
+  const p = document.querySelector('#view-licencas .page-h p');
+  if(h1) h1.textContent = 'Licenças e Alvarás';
+  if(p) p.textContent = 'Conformidade legal · ISO 14001 · Plano de renovação';
+}
+
 function filteredDocs(){
   return getLicSource().filter(r=>{
     if(!matchLoc(r.Localidade)) return false;
@@ -1771,7 +1917,14 @@ function pickModule(mod){
   renderData();
   toggleSide(false);
   window.scrollTo({top:0,behavior:'smooth'});
-  if(mod === 'licencas') refreshLicencasAndRender();
+  if(mod === 'licencas'){
+    document.getElementById('lic-content')?.classList.remove('on');
+    document.getElementById('lic-hub')?.classList.add('on');
+    const h1 = document.querySelector('#view-licencas .page-h h1');
+    const p = document.querySelector('#view-licencas .page-h p');
+    if(h1) h1.textContent = 'Licenças e Alvarás';
+    if(p) p.textContent = 'Conformidade legal · ISO 14001 · Plano de renovação';
+  }
   else if(mod === 'residuos'){ loadResiduosFromCloud().then(()=>{ renderFilters(); renderResiduos(); }); }
   else if(mod === 'financas'){
     Promise.all([loadResiduosFromCloud(), loadReceitasFromCloud()]).then(()=>{ renderFilters(); renderFinancas(); });
@@ -1780,6 +1933,7 @@ function pickModule(mod){
   else if(mod === 'gestaosc'){ loadGestaoScFromCloud().then(()=>{ renderFilters(); renderGestaoSc(); }); }
   else if(mod === 'planoacao' || mod === 'inspecoes' || mod === 'cronograma'){
     loadLocalData();
+    syncModulesFromCloud().then(()=>{ renderFilters(); renderData(); });
     renderFilters();
     renderData();
   }
@@ -1837,35 +1991,17 @@ function renderFilters(){
   const printBtn = `<button type="button" class="btn-print-report" onclick="printReport()">Imprimir Relatório</button>`;
   const scope = unitScopeHtml();
   if(selectedModule==='residuos'){
-    const mtrs = [...new Set((DATA.residuos||[]).map(r=>r.MTR).filter(Boolean))].sort();
-    const resNomes = [...new Set((DATA.residuos||[]).map(r=>r.Resíduo||r.Residuo).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    const transps = [...new Set((DATA.residuos||[]).map(r=>r.Transportador).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    const dests = [...new Set((DATA.residuos||[]).map(r=>r.Destinatário||r.Destinatario).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    let extra = `<div class="f-group"><label>MTR</label><select id="fr-mtr"><option value="">Todos</option>${mtrs.map(m=>`<option value="${esc(m)}" ${filters.mtr===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
-    extra += `<div class="f-group"><label>Resíduo</label><select id="fr-residuo"><option value="">Todos</option>${resNomes.map(m=>`<option value="${esc(m)}" ${filters.residuo===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
-    extra += `<div class="f-group"><label>Transportador</label><select id="fr-transp"><option value="">Todos</option>${transps.map(m=>`<option value="${esc(m)}" ${filters.transportador===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
-    extra += `<div class="f-group"><label>Destinatário</label><select id="fr-dest"><option value="">Todos</option>${dests.map(m=>`<option value="${esc(m)}" ${filters.destinatario===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
-    document.getElementById('filt-residuos').innerHTML = scope + commonAnoMes('fr') + extra +
+    document.getElementById('filt-residuos').innerHTML = scope +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openResModal(null)">+ Novo resíduo</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadResiduosFromCloud().then(()=>{renderFilters();renderResiduos();})">↻ Atualizar</button>` +
       printBtn;
-    bindFilter('fr-ano','fr-mes');
-    bindExtraFilters(['fr-mtr','fr-residuo','fr-transp','fr-dest'], ['mtr','residuo','transportador','destinatario']);
   } else if(selectedModule==='financas'){
-    const mtrs = [...new Set([...(DATA.residuos||[]).map(r=>r.MTR),...(DATA.receitas||[]).map(r=>r.MTR)].filter(Boolean))].sort();
-    const resNomes = [...new Set([...(DATA.residuos||[]).map(r=>r.Resíduo||r.Residuo),...(DATA.receitas||[]).map(r=>r.Resíduo||r.Residuo)].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    const dests = [...new Set([...(DATA.residuos||[]).map(r=>r.Destinatário||r.Destinatario),...(DATA.receitas||[]).map(r=>r.Destinador||r.Destinatário)].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
-    let extra = `<div class="f-group"><label>MTR</label><select id="ff-mtr"><option value="">Todos</option>${mtrs.map(m=>`<option value="${esc(m)}" ${filters.mtr===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
-    extra += `<div class="f-group"><label>Resíduo</label><select id="ff-residuo"><option value="">Todos</option>${resNomes.map(m=>`<option value="${esc(m)}" ${filters.residuo===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
-    extra += `<div class="f-group"><label>Destinatário</label><select id="ff-dest"><option value="">Todos</option>${dests.map(m=>`<option value="${esc(m)}" ${filters.destinatario===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
-    document.getElementById('filt-financas').innerHTML = scope + commonAnoMes('ff') + extra +
+    document.getElementById('filt-financas').innerHTML = scope +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openRecModal(null)">+ Nova receita</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="openResModal(null)">+ Novo custo (resíduo)</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="Promise.all([loadResiduosFromCloud(),loadReceitasFromCloud()]).then(()=>{renderFilters();renderFinancas();})">↻ Atualizar</button>` +
       printBtn;
-    bindFilter('ff-ano','ff-mes');
-    bindExtraFilters(['ff-mtr','ff-residuo','ff-dest'], ['mtr','residuo','destinatario']);
-  } else if(selectedModule==='efluentes'){
+    } else if(selectedModule==='efluentes'){
     document.getElementById('filt-efluentes').innerHTML = scope + commonAnoMes('fe') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openEfModal(null)">+ Nova medição</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadEfluentesFromCloud().then(()=>{renderFilters();renderEfluentes();})">↻ Atualizar</button>` +
@@ -2201,9 +2337,17 @@ function renderResiduos(){
     }
   }
 
+  const baseRes = (DATA.residuos||[]).filter(r=>matchUnit(r.Unidade));
   document.querySelector('#tbl-residuos thead').innerHTML = `<tr>
-    <th>Unidade</th><th>Data</th><th>MTR</th><th>Resíduo</th><th>Peso</th><th>Tecnologia</th>
-    <th>Transportador</th><th>Destinatário</th><th>Total</th><th></th></tr>`;
+    ${buildThFilter('unidade','Unidade', baseRes.map(r=>r.Unidade))}
+    ${buildThFilter('data','Data', baseRes.map(r=>r.Data?String(r.Data).slice(0,10):''))}
+    ${buildThFilter('mtr','MTR', baseRes.map(r=>r.MTR))}
+    ${buildThFilter('residuo','Resíduo', baseRes.map(r=>r.Resíduo||r.Residuo))}
+    <th>Peso</th>
+    ${buildThFilter('tecnologia','Tecnologia', baseRes.map(r=>r.Tecnologia))}
+    ${buildThFilter('transportador','Transportador', baseRes.map(r=>r.Transportador))}
+    ${buildThFilter('destinatario','Destinatário', baseRes.map(r=>r.Destinatário||r.Destinatario))}
+    <th>Total</th><th></th></tr>`;
   document.querySelector('#tbl-residuos tbody').innerHTML = res.slice(0,500).map(r=>`<tr>
     <td>${esc(r.Unidade)}</td><td>${esc(r.Data||'')}</td><td>${esc(r.MTR||'—')}</td>
     <td title="${esc(r['Código resíduo'])}">${esc(r.Resíduo)}</td>
@@ -2334,11 +2478,19 @@ function renderFinancas(){
     }
   }
 
-  document.querySelector('#tbl-financas thead').innerHTML = `<tr><th>Origem</th><th>Unidade</th><th>Mês</th><th>Resíduo</th><th>Peso</th><th>Valor (R$)</th><th></th></tr>`;
-  const rows = [
+  const baseR = (DATA.residuos||[]).filter(r=>matchUnit(r.Unidade));
+  const baseC = (DATA.receitas||[]).filter(r=>matchUnit(r.Unidade));
+  document.querySelector('#tbl-financas thead').innerHTML = `<tr>
+    ${buildThFilter('origem','Origem', ['Custo','Receita'])}
+    ${buildThFilter('unidade','Unidade', [...baseR.map(r=>r.Unidade),...baseC.map(r=>r.Unidade)])}
+    ${buildThFilter('mes','Mês', [...baseR.map(r=>r.Mês),...baseC.map(r=>r.Mês)])}
+    ${buildThFilter('residuo','Resíduo', [...baseR.map(r=>r.Resíduo),...baseC.map(r=>r.Resíduo)])}
+    <th>Peso</th><th>Valor (R$)</th><th></th></tr>`;
+  let rows = [
     ...res.map(r=>({o:'Custo',u:r.Unidade,m:r.Mês,res:r.Resíduo,p:r['Peso (ton)'],v:r['Total (R$)'],id:r.id,src:'res'})),
     ...rec.map(r=>({o:'Receita',u:r.Unidade,m:r.Mês,res:r.Resíduo,p:r['Peso (ton)'],v:r['Receita (R$)'],id:r.id,src:'rec'}))
-  ].slice(0,400);
+  ];
+  rows = rows.filter(r=>tfMatch('origem', r.o)).slice(0,400);
   document.querySelector('#tbl-financas tbody').innerHTML = rows.map(r=>`<tr>
     <td><span class="badge ${r.o==='Receita'?'ok':'w30'}">${r.o}</span></td>
     <td>${esc(r.u)}</td><td>${esc(r.m)}</td><td>${esc(r.res)}</td>
@@ -3020,6 +3172,15 @@ async function saveLicenca(){
     const idx = DATA_LOCAL.docsFornecedores.findIndex(x=>x.id===id);
     if(idx>=0) DATA_LOCAL.docsFornecedores[idx]=row; else DATA_LOCAL.docsFornecedores.push(row);
     saveLocalData();
+    if(sb && currentUser){
+      sb.from('licencas_fornecedores').upsert({
+        id:row.id, cnpj:row['CNPJ']||null, localidade:row['Localidade']||null,
+        endereco:row['Endereço']||null, tipo:row['Tipo de Licença'], numero:row['Nº']||null,
+        orgao:row['Órgão Emissor']||null, data_solicitacao:row['Data Solicitação Renovação']||null,
+        valida_ate:row['Válida até']||null, status:row['Status']||null, observacoes:row['Observações']||null,
+        updated_at:new Date().toISOString()
+      }).then(({error})=>{ if(error) console.warn('[MA] lic_forn', error.message); });
+    }
     closeLicModal();
     renderLicencas();
     return;
@@ -3066,6 +3227,7 @@ async function deleteLicenca(id){
     loadLocalData();
     DATA_LOCAL.docsFornecedores = DATA_LOCAL.docsFornecedores.filter(x=>x.id!==id);
     saveLocalData();
+    if(sb && currentUser) sb.from('licencas_fornecedores').delete().eq('id',id).then(({error})=>{ if(error) console.warn(error.message); });
     renderLicencas();
     return;
   }
@@ -4233,19 +4395,77 @@ function loadLocalData(){
     const raw = localStorage.getItem('carmak_ma_local');
     if(raw){
       const parsed = JSON.parse(raw);
-      DATA_LOCAL.acoes = parsed.acoes || [];
-      DATA_LOCAL.lembretes = parsed.lembretes || [];
-      DATA_LOCAL.inspecoes = parsed.inspecoes || [];
-      DATA_LOCAL.docsFornecedores = parsed.docsFornecedores || [];
+      DATA_LOCAL.acoes = parsed.acoes || DATA_LOCAL.acoes || [];
+      DATA_LOCAL.lembretes = parsed.lembretes || DATA_LOCAL.lembretes || [];
+      DATA_LOCAL.inspecoes = parsed.inspecoes || DATA_LOCAL.inspecoes || [];
+      DATA_LOCAL.docsFornecedores = parsed.docsFornecedores || DATA_LOCAL.docsFornecedores || [];
     }
   }catch(e){ console.warn(e); }
 }
 function saveLocalData(){
   try{
-    localStorage.setItem('carmak_ma_local', JSON.stringify(DATA_LOCAL));
+    localStorage.setItem('carmak_ma_local', JSON.stringify({
+      acoes: DATA_LOCAL.acoes||[],
+      lembretes: DATA_LOCAL.lembretes||[],
+      inspecoes: DATA_LOCAL.inspecoes||[],
+      docsFornecedores: DATA_LOCAL.docsFornecedores||[]
+    }));
   }catch(e){ console.warn(e); }
 }
-function uid(){ return 'id_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
+async function syncModulesFromCloud(){
+  if(!sb || !currentUser){ loadLocalData(); return {ok:false}; }
+  const out = {ok:true};
+  try{
+    const { data: acoes, error: e1 } = await sb.from('plano_acoes').select('*').order('criacao',{ascending:false});
+    if(!e1 && acoes){
+      DATA_LOCAL.acoes = acoes.map(r=>({
+        id:r.id, criacao:r.criacao, filial:r.filial, descricao:r.descricao,
+        responsavel:r.responsavel, previsao:r.previsao, concluida:r.concluida,
+        micros: Array.isArray(r.micros)?r.micros:(typeof r.micros==='string'?JSON.parse(r.micros||'[]'):[])
+      }));
+    } else if(e1) out.acoes = e1.message;
+    const { data: lems, error: e2 } = await sb.from('lembretes').select('*').order('data',{ascending:true});
+    if(!e2 && lems){
+      DATA_LOCAL.lembretes = lems.map(r=>({id:r.id,data:r.data,titulo:r.titulo,descricao:r.descricao||'',unidade:r.unidade||''}));
+    } else if(e2) out.lembretes = e2.message;
+    const { data: insp, error: e3 } = await sb.from('inspecoes').select('*').order('data',{ascending:false});
+    if(!e3 && insp){
+      // merge cloud metadata with local photos by id
+      loadLocalData();
+      const localById = {};
+      (DATA_LOCAL.inspecoes||[]).forEach(x=>{ localById[x.id]=x; });
+      DATA_LOCAL.inspecoes = insp.map(r=>{
+        const loc = localById[r.id]||{};
+        return {
+          id:r.id, filial:r.filial, endereco:r.endereco||'', cnpj:r.cnpj||'',
+          responsavel:r.responsavel||'', data:r.data, objetivo:r.objetivo||'',
+          servico:r.servico||'', conclusao:r.conclusao||'',
+          adequacoes: Array.isArray(r.adequacoes)?r.adequacoes:(typeof r.adequacoes==='string'?JSON.parse(r.adequacoes||'[]'):[]),
+          fotos: loc.fotos||[]
+        };
+      });
+    } else if(e3) out.inspecoes = e3.message;
+    const { data: forn, error: e4 } = await sb.from('licencas_fornecedores').select('*').order('localidade',{ascending:true});
+    if(!e4 && forn){
+      DATA_LOCAL.docsFornecedores = forn.map(r=>({
+        id:r.id, 'CNPJ':r.cnpj||'', 'Localidade':r.localidade||'', 'Endereço':r.endereco||'',
+        'Tipo de Licença':r.tipo||'', 'Nº':r.numero||'', 'Órgão Emissor':r.orgao||'',
+        'Data Solicitação Renovação':r.data_solicitacao||'', 'Válida até':r.valida_ate||'',
+        'Status':r.status||'', 'Observações':r.observacoes||''
+      }));
+    } else if(e4) out.forn = e4.message;
+    saveLocalData();
+  }catch(e){ console.warn(e); out.ok=false; out.error=String(e); }
+  return out;
+}
+
+function uid(){
+  if(typeof crypto!=='undefined' && crypto.randomUUID) return crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{
+    const r=Math.random()*16|0, v=c==='x'?r:(r&0x3|0x8);
+    return v.toString(16);
+  });
+}
 function todayISO(){ const d=new Date(); return d.toISOString().slice(0,10); }
 function daysDiff(a,b){
   const da = new Date(a+'T00:00:00'), db = new Date(b+'T00:00:00');
@@ -4297,6 +4517,16 @@ function saveAcao(){
   const idx = DATA_LOCAL.acoes.findIndex(a=>a.id===id);
   if(idx>=0) DATA_LOCAL.acoes[idx]=row; else DATA_LOCAL.acoes.unshift(row);
   saveLocalData();
+  if(sb && currentUser){
+    const payload = {
+      id: row.id, criacao:row.criacao, filial:row.filial, descricao:row.descricao,
+      responsavel:row.responsavel, previsao:row.previsao, concluida:row.concluida,
+      micros: row.micros||[], updated_at: new Date().toISOString()
+    };
+    sb.from('plano_acoes').upsert(payload).then(({error})=>{
+      if(error) console.warn('[MA] plano_acoes upsert', error.message);
+    });
+  }
   closeAcaoModal();
   renderPlanoAcao();
 }
@@ -4310,6 +4540,13 @@ function toggleMicro(acaoId, microId){
   if(a.micros.length && a.micros.every(x=>x.done)) a.concluida = todayISO();
   else a.concluida = null;
   saveLocalData();
+  if(sb && currentUser){
+    sb.from('plano_acoes').upsert({
+      id:a.id, criacao:a.criacao, filial:a.filial, descricao:a.descricao,
+      responsavel:a.responsavel, previsao:a.previsao, concluida:a.concluida,
+      micros:a.micros||[], updated_at:new Date().toISOString()
+    }).then(({error})=>{ if(error) console.warn(error.message); });
+  }
   renderPlanoAcao();
 }
 function deleteAcao(id){
@@ -4317,6 +4554,7 @@ function deleteAcao(id){
   loadLocalData();
   DATA_LOCAL.acoes = DATA_LOCAL.acoes.filter(a=>a.id!==id);
   saveLocalData();
+  if(sb && currentUser) sb.from('plano_acoes').delete().eq('id',id).then(({error})=>{ if(error) console.warn(error.message); });
   renderPlanoAcao();
 }
 function acaoProgress(a){
@@ -4411,6 +4649,10 @@ function saveReminder(){
   const idx = DATA_LOCAL.lembretes.findIndex(x=>x.id===row.id);
   if(idx>=0) DATA_LOCAL.lembretes[idx]=row; else DATA_LOCAL.lembretes.push(row);
   saveLocalData();
+  if(sb && currentUser){
+    sb.from('lembretes').upsert({id:row.id,data:row.data,titulo:row.titulo,descricao:row.descricao,unidade:row.unidade||null})
+      .then(({error})=>{ if(error) console.warn('[MA] lembretes', error.message); });
+  }
   closeRemModal();
   renderCronograma();
 }
@@ -4419,6 +4661,7 @@ function deleteReminder(id){
   loadLocalData();
   DATA_LOCAL.lembretes = DATA_LOCAL.lembretes.filter(x=>x.id!==id);
   saveLocalData();
+  if(sb && currentUser) sb.from('lembretes').delete().eq('id',id).then(({error})=>{ if(error) console.warn(error.message); });
   renderCronograma();
 }
 function calShift(dir){
@@ -4484,18 +4727,60 @@ function renderCronograma(){
 }
 function fillCalDayDetail(iso){
   document.getElementById('cal-day-label').textContent = fmtDateISO(iso);
-  const map = mtrDatesMap();
-  const items = map[iso]||[];
-  if(!items.length){
-    document.getElementById('cal-day-detail').innerHTML = '<div class="empty-state" style="padding:12px">Sem eventos neste dia.</div>';
-  } else {
-    document.getElementById('cal-day-detail').innerHTML = items.map(it=>{
-      if(it.tipo==='mtr') return `<div class="rem-item"><b>♻ MTR</b>${esc(it.label)}</div>`;
-      if(it.tipo==='rem') return `<div class="rem-item"><b>🔔 ${esc(it.label)}</b>${esc(it.desc||'')}
-        <button type="button" class="btn-ma danger" style="margin-top:6px;padding:4px 8px;font-size:11px" onclick="deleteReminder('${it.id}')">Excluir</button></div>`;
-      return `<div class="rem-item"><b>🎯 Ação</b>${esc(it.label)}${it.resp?' · '+esc(it.resp):''}</div>`;
+  // Group residual MTRs by number for this day
+  const dayRows = (DATA.residuos||[]).filter(r=>{
+    if(!matchUnit(r.Unidade)) return false;
+    const d = r.Data ? String(r.Data).slice(0,10) : '';
+    return d===iso;
+  });
+  const byMtr = {};
+  dayRows.forEach(r=>{
+    const k = (r.MTR||'—').toString().trim() || '—';
+    if(!byMtr[k]) byMtr[k] = { mtr:k, transportador:r.Transportador||'—', destinatario:r.Destinatário||r.Destinatario||'—', items:[] };
+    byMtr[k].items.push(r);
+    if(r.Transportador) byMtr[k].transportador = r.Transportador;
+    if(r.Destinatário||r.Destinatario) byMtr[k].destinatario = r.Destinatário||r.Destinatario;
+  });
+  loadLocalData();
+  const rems = (DATA_LOCAL.lembretes||[]).filter(r=>{
+    if(r.data!==iso) return false;
+    if(selectedUnit && r.unidade && r.unidade!==selectedUnit) return false;
+    return true;
+  });
+  const acts = (DATA_LOCAL.acoes||[]).filter(a=>{
+    if(a.previsao!==iso) return false;
+    if(selectedUnit && a.filial!==selectedUnit) return false;
+    return true;
+  });
+  let html = '';
+  Object.values(byMtr).forEach((g,i)=>{
+    const eid = 'mtrd_'+i;
+    const lines = g.items.map(r=>{
+      const nome = r.Resíduo||r.Residuo||'—';
+      const peso = r['Peso (ton)']!=null ? fmtTon(r['Peso (ton)']) : '—';
+      return `<div><span>${esc(nome)}</span><b>${esc(peso)}</b></div>`;
     }).join('');
-  }
+    html += `<div class="cal-event" id="${eid}" onclick="this.classList.toggle('open')">
+      <div class="ce-title">♻ MTR ${esc(g.mtr)}</div>
+      <div class="ce-sub">Transportador: ${esc(g.transportador)} · Destinatário: ${esc(g.destinatario)}</div>
+      <div class="ce-sub">${g.items.length} resíduo(s) · clique para detalhar</div>
+      <div class="ce-detail">${lines}</div>
+    </div>`;
+  });
+  rems.forEach(r=>{
+    html += `<div class="cal-event">
+      <div class="ce-title">🔔 ${esc(r.titulo)}</div>
+      <div class="ce-sub">${esc(r.descricao||'')}</div>
+      <button type="button" class="btn-ma danger" style="margin-top:6px;padding:4px 8px;font-size:11px" onclick="event.stopPropagation();deleteReminder('${r.id}')">Excluir</button>
+    </div>`;
+  });
+  acts.forEach(a=>{
+    html += `<div class="cal-event">
+      <div class="ce-title">🎯 ${esc(a.descricao)}</div>
+      <div class="ce-sub">Responsável: ${esc(a.responsavel||'—')}</div>
+    </div>`;
+  });
+  document.getElementById('cal-day-detail').innerHTML = html || '<div class="empty-state" style="padding:12px">Sem eventos neste dia.</div>';
 }
 function selectCalDay(iso){
   calSelectedDate = iso;
@@ -4613,15 +4898,27 @@ function saveInspecao(){
   const idx = DATA_LOCAL.inspecoes.findIndex(x=>x.id===d.id);
   if(idx>=0) DATA_LOCAL.inspecoes[idx]=d; else DATA_LOCAL.inspecoes.unshift(d);
   saveLocalData();
+  if(sb && currentUser){
+    const payload = {
+      id:d.id, filial:d.filial, endereco:d.endereco||null, cnpj:d.cnpj||null,
+      responsavel:d.responsavel||null, data:d.data, objetivo:d.objetivo||null,
+      servico:d.servico||null, adequacoes:d.adequacoes||[], conclusao:d.conclusao||null,
+      updated_at:new Date().toISOString()
+    };
+    sb.from('inspecoes').upsert(payload).then(({error})=>{
+      if(error) console.warn('[MA] inspecoes', error.message);
+    });
+  }
   cancelInspecaoEditor();
   renderInspecoes();
-  alert('Inspeção salva.');
+  alert('Inspeção salva (metadados na nuvem; fotos neste navegador).');
 }
 function deleteInspecao(id){
   if(!confirm('Excluir esta inspeção?')) return;
   loadLocalData();
   DATA_LOCAL.inspecoes = DATA_LOCAL.inspecoes.filter(x=>x.id!==id);
   saveLocalData();
+  if(sb && currentUser) sb.from('inspecoes').delete().eq('id',id).then(({error})=>{ if(error) console.warn(error.message); });
   renderInspecoes();
 }
 function renderInspecoes(){
@@ -4734,6 +5031,7 @@ function showAppAfterLogin(){
   updateChrome();
   loadAllModulesFromCloud().then(res=>{
     console.info('[MA] Sincronização pós-login concluída', res);
+    syncModulesFromCloud().then(r=>console.info('[MA] Módulos locais/cloud', r));
     renderNotifications();
   });
 }
