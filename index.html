@@ -845,10 +845,10 @@ th.th-filter .th-btn.has{background:var(--gold);color:var(--navy);border-color:v
   appearance:none;border:1px solid var(--line);background:var(--tint);border-radius:6px;
   font-size:10px;font-weight:700;padding:4px 8px;cursor:pointer;color:var(--ink);
 }
-.lic-hub{display:none}
-.lic-hub.on{display:block}
-.lic-content{display:none}
-.lic-content.on{display:block}
+.lic-hub{display:none !important}
+.lic-hub.on{display:block !important}
+.lic-content{display:none !important}
+.lic-content.on{display:block !important}
 .btn-back-lic{
   appearance:none;border:1px solid var(--line-2);background:#fff;color:var(--navy);
   padding:8px 14px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:12px;
@@ -1136,40 +1136,62 @@ th.th-filter .th-btn.has{background:var(--gold);color:var(--navy);border-color:v
       <p>Conformidade legal · ISO 14001 · Plano de renovação</p>
       <div class="ctx" id="ctx-licencas"></div>
     </div>
-    <div class="tabs-bar">
-      <button type="button" class="tab-btn active" id="tab-lic-carmak" onclick="setLicTab('carmak')">Carmak</button>
-      <button type="button" class="tab-btn" id="tab-lic-forn" onclick="setLicTab('fornecedores')">Fornecedores</button>
-    </div>
-    <div class="filters-inline" id="filt-licencas"></div>
-    <div class="kpi-row" id="kpi-licencas"></div>
 
-    <div class="section-label">Prioridades de ação</div>
-    <div class="prio-board">
-      <div class="prio-card">
-        <h3>⚠ Ações críticas e urgentes</h3>
-        <p class="panel-sub">Vencidas, inativas e o que vence em até 30 dias — ordem de prioridade</p>
-        <div id="lic-prio-list"></div>
+    <!-- Hub: só Carmak e Fornecedores -->
+    <div class="lic-hub on" id="lic-hub">
+      <div class="lic-hub-bg">
+        <div class="guia-badge">LICENÇAS E ALVARÁS</div>
+        <h2 class="lic-hub-title">Selecione a carteira</h2>
+        <p class="lic-hub-sub">Carmak ou Fornecedores — mesma gestão de prazos, conformidade e inventário</p>
+        <div class="guia-grid" style="max-width:720px;margin:0 auto">
+          <button type="button" class="guia-card" onclick="enterLicTab('carmak')">
+            <div class="gc-ic">📋</div>
+            <h3>Carmak</h3>
+            <p>Licenças e alvarás das unidades Carmak · conformidade e renovações.</p>
+          </button>
+          <button type="button" class="guia-card" onclick="enterLicTab('fornecedores')">
+            <div class="gc-ic">🏢</div>
+            <h3>Fornecedores</h3>
+            <p>Documentos e prazos de fornecedores parceiros · criar, editar e excluir.</p>
+          </button>
+        </div>
       </div>
-      <div class="prio-card">
-        <h3>Conformidade da carteira</h3>
-        <p class="panel-sub">Taxa de licenças ativas e dentro do prazo</p>
-        <div class="comp-wrap" id="lic-compliance"></div>
-        <div class="section-label" style="margin-top:18px">Próximas renovações (31–90 dias)</div>
-        <div id="lic-upcoming"></div>
+    </div>
+
+    <!-- Conteúdo após escolher Carmak ou Fornecedores -->
+    <div class="lic-content" id="lic-content">
+      <button type="button" class="btn-back-lic" onclick="backLicHub()">← Voltar · Carmak / Fornecedores</button>
+      <div class="filters-inline" id="filt-licencas"></div>
+      <div class="kpi-row" id="kpi-licencas"></div>
+
+      <div class="section-label">Prioridades de ação</div>
+      <div class="prio-board">
+        <div class="prio-card">
+          <h3>⚠ Ações críticas e urgentes</h3>
+          <p class="panel-sub">Vencidas, inativas e o que vence em até 30 dias — ordem de prioridade</p>
+          <div id="lic-prio-list"></div>
+        </div>
+        <div class="prio-card">
+          <h3>Conformidade da carteira</h3>
+          <p class="panel-sub">Taxa de licenças ativas e dentro do prazo</p>
+          <div class="comp-wrap" id="lic-compliance"></div>
+          <div class="section-label" style="margin-top:18px">Próximas renovações (31–90 dias)</div>
+          <div id="lic-upcoming"></div>
+        </div>
       </div>
-    </div>
 
-    <div class="section-label">Mapa por unidade</div>
-    <div class="panel">
-      <h3>Status da carteira por localidade</h3>
-      <p class="panel-sub">Distribuição Ativa · Em andamento · Crítico (vencida/inativa)</p>
-      <div class="unit-matrix" id="lic-unit-matrix"></div>
-    </div>
+      <div class="section-label">Mapa por unidade</div>
+      <div class="panel">
+        <h3>Status da carteira por localidade</h3>
+        <p class="panel-sub">Distribuição Ativa · Em andamento · Crítico (vencida/inativa)</p>
+        <div class="unit-matrix" id="lic-unit-matrix"></div>
+      </div>
 
-    <div class="panel">
-      <h3>Inventário completo</h3>
-      <p class="panel-sub">Ordenado por prazo (mais crítico primeiro)</p>
-      <div class="table-wrap" style="max-height:480px"><table class="data" id="tbl-licencas"><thead></thead><tbody></tbody></table></div>
+      <div class="panel">
+        <h3>Inventário completo</h3>
+        <p class="panel-sub">Ordenado por prazo (mais crítico primeiro)</p>
+        <div class="table-wrap" style="max-height:480px"><table class="data" id="tbl-licencas"><thead></thead><tbody></tbody></table></div>
+      </div>
     </div>
   </div>
 
@@ -1781,32 +1803,63 @@ function getLicSource(){
 function setLicTab(tab){
   licTab = tab==='fornecedores' ? 'fornecedores' : 'carmak';
 }
-function enterLicTab(tab){
+function showLicHub(){
+  licTab = 'carmak';
+  const hub = document.getElementById('lic-hub');
+  const content = document.getElementById('lic-content');
+  if(hub){ hub.classList.add('on'); hub.style.display = 'block'; }
+  if(content){ content.classList.remove('on'); content.style.display = 'none'; }
+  const h1 = document.querySelector('#view-licencas .page-h h1');
+  const p = document.querySelector('#view-licencas .page-h p');
+  if(h1) h1.textContent = 'Licenças e Alvarás';
+  if(p) p.textContent = 'Escolha a carteira · Carmak ou Fornecedores';
+  const ctx = document.getElementById('ctx-licencas');
+  if(ctx) ctx.textContent = 'Selecione Carmak ou Fornecedores';
+  updateChrome();
+}
+async function enterLicTab(tab){
   setLicTab(tab);
-  document.getElementById('lic-hub')?.classList.remove('on');
-  document.getElementById('lic-content')?.classList.add('on');
+  const hub = document.getElementById('lic-hub');
+  const content = document.getElementById('lic-content');
+  if(hub){ hub.classList.remove('on'); hub.style.display = 'none'; }
+  if(content){ content.classList.add('on'); content.style.display = 'block'; }
   const h1 = document.querySelector('#view-licencas .page-h h1');
   const p = document.querySelector('#view-licencas .page-h p');
   if(h1) h1.textContent = tab==='fornecedores' ? 'Licenças · Fornecedores' : 'Licenças · Carmak';
   if(p) p.textContent = tab==='fornecedores'
-    ? 'Documentos e prazos de fornecedores parceiros · adicionar, editar e excluir'
+    ? 'Documentos e prazos de fornecedores · criar, editar e excluir'
     : 'Conformidade legal · ISO 14001 · Plano de renovação';
   updateChrome();
   renderFilters();
-  if(tab==='carmak') refreshLicencasAndRender();
-  else {
-    loadLocalData();
-    syncModulesFromCloud().then(()=>renderLicencas());
+  if(tab==='carmak'){
+    await refreshLicencasAndRender();
+  } else {
+    await loadLicencasFornecedoresFromCloud();
     renderLicencas();
   }
 }
 function backLicHub(){
-  document.getElementById('lic-content')?.classList.remove('on');
-  document.getElementById('lic-hub')?.classList.add('on');
-  const h1 = document.querySelector('#view-licencas .page-h h1');
-  const p = document.querySelector('#view-licencas .page-h p');
-  if(h1) h1.textContent = 'Licenças e Alvarás';
-  if(p) p.textContent = 'Conformidade legal · ISO 14001 · Plano de renovação';
+  showLicHub();
+}
+async function loadLicencasFornecedoresFromCloud(){
+  if(!sb || !currentUser){
+    DATA_LOCAL.docsFornecedores = DATA_LOCAL.docsFornecedores || [];
+    return {ok:false, error:'Sem login'};
+  }
+  try{
+    const { data, error } = await sb.from('licencas_fornecedores').select('*').order('localidade',{ascending:true});
+    if(error) throw error;
+    DATA_LOCAL.docsFornecedores = (data||[]).map(r=>({
+      id:r.id, 'CNPJ':r.cnpj||'', 'Localidade':r.localidade||'', 'Endereço':r.endereco||'',
+      'Tipo de Licença':r.tipo||'', 'Nº':r.numero||'', 'Órgão Emissor':r.orgao||'',
+      'Data Solicitação Renovação':r.data_solicitacao||'', 'Válida até':r.valida_ate||'',
+      'Status':r.status||'', 'Observações':r.observacoes||''
+    }));
+    return {ok:true, count:(data||[]).length};
+  }catch(e){
+    console.warn('[MA] licencas_fornecedores', e);
+    return {ok:false, error:e.message||String(e)};
+  }
 }
 
 function filteredDocs(){
@@ -1940,12 +1993,7 @@ function pickModule(mod){
   toggleSide(false);
   window.scrollTo({top:0,behavior:'smooth'});
   if(mod === 'licencas'){
-    document.getElementById('lic-content')?.classList.remove('on');
-    document.getElementById('lic-hub')?.classList.add('on');
-    const h1 = document.querySelector('#view-licencas .page-h h1');
-    const p = document.querySelector('#view-licencas .page-h p');
-    if(h1) h1.textContent = 'Licenças e Alvarás';
-    if(p) p.textContent = 'Conformidade legal · ISO 14001 · Plano de renovação';
+    showLicHub();
   }
   else if(mod === 'residuos'){ loadResiduosFromCloud().then(()=>{ renderFilters(); renderResiduos(); }); }
   else if(mod === 'financas'){
@@ -1990,7 +2038,10 @@ function renderData(){
   if(selectedModule==='residuos') renderResiduos();
   else if(selectedModule==='financas') renderFinancas();
   else if(selectedModule==='efluentes') renderEfluentes();
-  else if(selectedModule==='licencas') renderLicencas();
+  else if(selectedModule==='licencas'){
+    const content = document.getElementById('lic-content');
+    if(content && content.classList.contains('on')) renderLicencas();
+  }
   else if(selectedModule==='gestaosc') renderGestaoSc();
   else if(selectedModule==='planoacao') renderPlanoAcao();
   else if(selectedModule==='inspecoes') renderInspecoes();
@@ -3154,7 +3205,9 @@ function fillLicDatalists(){
   if(do_) do_.innerHTML = orgs.map(t => `<option value="${esc(t)}">`).join('');
 }
 function openLicModal(row){
-  if(licTab!=='fornecedores' && !sb){ alert('Supabase não conectado.'); return; }
+  if(licTab==='fornecedores'){
+    if(!sb || !currentUser){ alert('Faça login para gerenciar fornecedores no Supabase.'); return; }
+  } else if(!sb){ alert('Supabase não conectado.'); return; }
   fillLicDatalists();
   const title = document.getElementById('modal-lic-title');
   document.getElementById('lic_id').value = row && row.id ? row.id : '';
@@ -3176,10 +3229,10 @@ function closeLicModal(){
 }
 async function saveLicenca(){
   if(licTab==='fornecedores'){
+    if(!sb || !currentUser){ alert('Faça login para gravar no Supabase.'); return; }
     const id = document.getElementById('lic_id').value || uid();
     const tipo = (document.getElementById('lic_tipo').value || '').trim();
     if(!tipo){ alert('Informe o tipo de licença.'); return; }
-    loadLocalData();
     const row = {
       id,
       'CNPJ': document.getElementById('lic_cnpj').value || '',
@@ -3193,20 +3246,22 @@ async function saveLicenca(){
       'Status': document.getElementById('lic_status').value || '',
       'Observações': (document.getElementById('lic_obs')||{}).value || ''
     };
-    const idx = DATA_LOCAL.docsFornecedores.findIndex(x=>x.id===id);
-    if(idx>=0) DATA_LOCAL.docsFornecedores[idx]=row; else DATA_LOCAL.docsFornecedores.push(row);
-    saveLocalData();
-    if(sb && currentUser){
-      sb.from('licencas_fornecedores').upsert({
-        id:row.id, cnpj:row['CNPJ']||null, localidade:row['Localidade']||null,
-        endereco:row['Endereço']||null, tipo:row['Tipo de Licença'], numero:row['Nº']||null,
-        orgao:row['Órgão Emissor']||null, data_solicitacao:row['Data Solicitação Renovação']||null,
-        valida_ate:row['Válida até']||null, status:row['Status']||null, observacoes:row['Observações']||null,
-        updated_at:new Date().toISOString()
-      }).then(({error})=>{ if(error) console.warn('[MA] lic_forn', error.message); });
+    const payload = {
+      id:row.id, cnpj:row['CNPJ']||null, localidade:row['Localidade']||null,
+      endereco:row['Endereço']||null, tipo:row['Tipo de Licença'], numero:row['Nº']||null,
+      orgao:row['Órgão Emissor']||null, data_solicitacao:row['Data Solicitação Renovação']||null,
+      valida_ate:row['Válida até']||null, status:row['Status']||null, observacoes:row['Observações']||null,
+      updated_at:new Date().toISOString()
+    };
+    try{
+      const { error } = await sb.from('licencas_fornecedores').upsert(payload);
+      if(error) throw error;
+      await loadLicencasFornecedoresFromCloud();
+      closeLicModal();
+      renderLicencas();
+    }catch(e){
+      alert('Erro ao salvar no Supabase: '+(e.message||e));
     }
-    closeLicModal();
-    renderLicencas();
     return;
   }
   if(!sb){ alert('Supabase não conectado.'); return; }
@@ -3248,11 +3303,13 @@ async function deleteLicenca(id){
   if(!id){ alert('Registro sem ID do banco (recarregue a página após o login).'); return; }
   if(!confirm('Excluir esta licença definitivamente?')) return;
   if(licTab==='fornecedores'){
-    loadLocalData();
-    DATA_LOCAL.docsFornecedores = DATA_LOCAL.docsFornecedores.filter(x=>x.id!==id);
-    saveLocalData();
-    if(sb && currentUser) sb.from('licencas_fornecedores').delete().eq('id',id).then(({error})=>{ if(error) console.warn(error.message); });
-    renderLicencas();
+    if(!sb || !currentUser){ alert('Faça login para excluir no Supabase.'); return; }
+    try{
+      const { error } = await sb.from('licencas_fornecedores').delete().eq('id',id);
+      if(error) throw error;
+      await loadLicencasFornecedoresFromCloud();
+      renderLicencas();
+    }catch(e){ alert('Erro ao excluir: '+(e.message||e)); }
     return;
   }
   if(!sb){ alert('Supabase não conectado.'); return; }
@@ -4694,12 +4751,24 @@ function calShift(dir){
 }
 function mtrDatesMap(){
   const map = {};
+  // One calendar marker per MTR number per day (not per residue line)
+  const mtrSeen = {};
   (DATA.residuos||[]).forEach(r=>{
     if(!matchUnit(r.Unidade)) return;
     const d = r.Data ? String(r.Data).slice(0,10) : '';
     if(!d || d.length<8) return;
+    const mtr = (r.MTR||'—').toString().trim() || '—';
+    const key = d+'|'+mtr;
+    if(mtrSeen[key]) return;
+    mtrSeen[key] = true;
     if(!map[d]) map[d]=[];
-    map[d].push({tipo:'mtr', label:(r.MTR||'MTR')+' · '+(r.Resíduo||'')+' · '+(r.Unidade||''), peso:r['Peso (ton)']});
+    map[d].push({
+      tipo:'mtr',
+      mtr,
+      label: 'MTR '+mtr,
+      transportador: r.Transportador||'—',
+      destinatario: r.Destinatário||r.Destinatario||'—'
+    });
   });
   loadLocalData();
   (DATA_LOCAL.lembretes||[]).forEach(r=>{
