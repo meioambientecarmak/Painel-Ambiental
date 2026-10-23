@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meio Ambiente · Carmak · Gestão Ambiental</title>
-<!-- MA-BUILD: 2026-10-23-lic-hub-v2 -->
+<!-- MA-BUILD: 2026-10-23-docs-v1 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -888,6 +888,22 @@ th.th-filter .th-btn.has{background:var(--gold);color:var(--navy);border-color:v
 .lic-hub .guia-grid{grid-template-columns:repeat(2,1fr)!important;max-width:720px}
 .lic-hub .guia-card{text-align:left}
 
+
+.doc-attach{border:1px dashed var(--line-2);border-radius:10px;padding:12px;background:var(--tint-2);margin-top:4px}
+.doc-attach .doc-current{font-size:12px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.doc-attach .doc-current a{color:var(--navy);font-weight:700}
+.timeline{margin-top:12px;border-top:1px solid var(--line);padding-top:10px}
+.timeline-item{border-left:3px solid var(--gold);padding:8px 12px;margin:0 0 10px 6px;background:var(--tint-2);border-radius:0 10px 10px 0}
+.timeline-item .tl-date{font-size:11px;font-weight:700;color:var(--navy)}
+.timeline-item .tl-text{font-size:12.5px;margin:4px 0;color:var(--ink)}
+.timeline-item .tl-file{font-size:11.5px}
+.timeline-item .tl-file a{color:var(--teal);font-weight:600}
+.timeline-compose{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:#fff}
+.timeline-compose textarea{width:100%;min-height:64px;border:1px solid var(--line-2);border-radius:8px;padding:8px;font-size:13px}
+.admin-only{display:none}
+body.is-admin .admin-only{display:block}
+body:not(.is-admin) .admin-only-inline{display:none !important}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -1487,6 +1503,18 @@ th.th-filter .th-btn.has{background:var(--gold);color:var(--navy);border-color:v
         <div class="mf"><label>Válida até</label><input type="date" id="lic_valida"></div>
       </div>
       <div class="mf"><label>Observações</label><textarea id="lic_obs" placeholder="Notas, protocolos, pendências…"></textarea></div>
+      <div class="mf">
+        <label>Documento PDF (1 por licença)</label>
+        <div class="doc-attach">
+          <input type="hidden" id="lic_doc_url">
+          <input type="hidden" id="lic_doc_nome">
+          <div class="doc-current" id="lic_doc_current">Nenhum PDF anexado</div>
+          <div class="admin-only">
+            <input type="file" id="lic_doc_file" accept="application/pdf,.pdf" style="font-size:12px">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Máx. 20 MB · envio substitui o PDF anterior</div>
+          </div>
+        </div>
+      </div>
       <datalist id="dl-tipos"></datalist>
       <datalist id="dl-orgaos"></datalist>
     </div>
@@ -1586,7 +1614,9 @@ let tableFilters = {};
 let licTab = 'carmak';
 let calCursor = new Date();
 let calSelectedDate = null;
-let DATA_LOCAL = { acoes: [], lembretes: [], inspecoes: [], docsFornecedores: [] };
+let DATA_LOCAL = { acoes: [], lembretes: [], inspecoes: [], docsFornecedores: [], movimentacoes: {} };
+let isAdmin = false;
+
 
 function clearFilters(){
   filters.ano = '';
@@ -1871,7 +1901,8 @@ async function loadLicencasFornecedoresFromCloud(){
       id:r.id, 'CNPJ':r.cnpj||'', 'Localidade':r.localidade||'', 'Endereço':r.endereco||'',
       'Tipo de Licença':r.tipo||'', 'Nº':r.numero||'', 'Órgão Emissor':r.orgao||'',
       'Data Solicitação Renovação':r.data_solicitacao||'', 'Válida até':r.valida_ate||'',
-      'Status':r.status||'', 'Observações':r.observacoes||''
+      'Status':r.status||'', 'Observações':r.observacoes||'',
+      doc_url:r.doc_url||'', doc_nome:r.doc_nome||'', doc_path:r.doc_url||''
     }));
     return {ok:true, count:(data||[]).length};
   }catch(e){
@@ -2023,7 +2054,8 @@ function pickModule(mod){
   else if(mod === 'gestaosc'){ loadGestaoScFromCloud().then(()=>{ renderFilters(); renderGestaoSc(); }); }
   else if(mod === 'planoacao' || mod === 'inspecoes' || mod === 'cronograma'){
     loadLocalData();
-    syncModulesFromCloud().then(()=>{ renderFilters(); renderData(); });
+    Promise.all([syncModulesFromCloud(), loadAdminProfile(), mod==='planoacao'?loadMovimentacoesForAcoes():Promise.resolve()])
+      .then(()=>{ renderFilters(); renderData(); });
     renderFilters();
     renderData();
   }
@@ -3182,7 +3214,7 @@ function renderLicencas(){
   document.querySelectorAll('#tbl-licencas [data-lic-ed]').forEach(btn=>{
     btn.onclick = ()=>{
       const id = btn.getAttribute('data-lic-ed');
-      const row = DATA.docs.find(d => d.id === id);
+      const row = getLicSource().find(d => d.id === id);
       openLicModal(row || null);
     };
   });
@@ -3190,6 +3222,19 @@ function renderLicencas(){
     btn.onclick = ()=>{
       const id = btn.getAttribute('data-lic-del');
       if(id) deleteLicenca(id);
+    };
+  });
+  document.querySelectorAll('#tbl-licencas [data-lic-doc]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const id = btn.getAttribute('data-lic-doc');
+      const row = getLicSource().find(d => d.id === id);
+      if(!row) return;
+      const p = row.doc_path || row.doc_url;
+      if(!p){ alert('Documento não encontrado.'); return; }
+      if(/^https?:/i.test(p)){ window.open(p, '_blank'); return; }
+      const u = await signedUrlFromPath('licencas-docs', p);
+      if(u) window.open(u, '_blank');
+      else alert('Não foi possível gerar link de download.');
     };
   });
 }
@@ -3248,77 +3293,64 @@ function closeLicModal(){
   document.getElementById('modal-lic').classList.remove('on');
 }
 async function saveLicenca(){
-  if(licTab==='fornecedores'){
-    if(!sb || !currentUser){ alert('Faça login para gravar no Supabase.'); return; }
-    const id = document.getElementById('lic_id').value || uid();
-    const tipo = (document.getElementById('lic_tipo').value || '').trim();
-    if(!tipo){ alert('Informe o tipo de licença.'); return; }
-    const row = {
-      id,
-      'CNPJ': document.getElementById('lic_cnpj').value || '',
-      'Localidade': document.getElementById('lic_localidade').value || '',
-      'Endereço': document.getElementById('lic_endereco').value || '',
-      'Tipo de Licença': tipo,
-      'Nº': document.getElementById('lic_numero').value || '',
-      'Órgão Emissor': document.getElementById('lic_orgao').value || '',
-      'Data Solicitação Renovação': document.getElementById('lic_data_sol').value || '',
-      'Válida até': document.getElementById('lic_valida').value || '',
-      'Status': document.getElementById('lic_status').value || '',
-      'Observações': (document.getElementById('lic_obs')||{}).value || ''
-    };
-    const payload = {
-      id:row.id, cnpj:row['CNPJ']||null, localidade:row['Localidade']||null,
-      endereco:row['Endereço']||null, tipo:row['Tipo de Licença'], numero:row['Nº']||null,
-      orgao:row['Órgão Emissor']||null, data_solicitacao:row['Data Solicitação Renovação']||null,
-      valida_ate:row['Válida até']||null, status:row['Status']||null, observacoes:row['Observações']||null,
-      updated_at:new Date().toISOString()
-    };
-    try{
-      const { error } = await sb.from('licencas_fornecedores').upsert(payload);
-      if(error) throw error;
-      await loadLicencasFornecedoresFromCloud();
-      closeLicModal();
-      renderLicencas();
-    }catch(e){
-      alert('Erro ao salvar no Supabase: '+(e.message||e));
-    }
-    return;
-  }
-  if(!sb){ alert('Supabase não conectado.'); return; }
-  const id = document.getElementById('lic_id').value || null;
+  if(!sb || !currentUser){ alert('Faça login para gravar.'); return; }
+  const isForn = licTab==='fornecedores';
+  const id = document.getElementById('lic_id').value || uid();
   const tipo = (document.getElementById('lic_tipo').value || '').trim();
   if(!tipo){ alert('Informe o tipo de licença.'); return; }
-  const payload = rowToPayload({
-    cnpj: document.getElementById('lic_cnpj').value,
-    localidade: document.getElementById('lic_localidade').value,
-    endereco: document.getElementById('lic_endereco').value,
-    tipo,
-    numero: document.getElementById('lic_numero').value,
-    orgao: document.getElementById('lic_orgao').value,
-    data_solicitacao: document.getElementById('lic_data_sol').value,
-    valida_ate: document.getElementById('lic_valida').value,
-    status: document.getElementById('lic_status').value,
-    observacoes: document.getElementById('lic_obs').value
-  });
   const btn = document.getElementById('btn-lic-save');
   if(btn){ btn.disabled = true; btn.textContent = 'Salvando…'; }
   try{
-    let error;
-    if(id){
-      ({ error } = await sb.from('licencas').update(payload).eq('id', id));
-    } else {
-      ({ error } = await sb.from('licencas').insert(payload));
+    let doc_path = document.getElementById('lic_doc_url').value || null;
+    let doc_nome = document.getElementById('lic_doc_nome').value || null;
+    const fileEl = document.getElementById('lic_doc_file');
+    const file = fileEl && fileEl.files && fileEl.files[0];
+    if(file){
+      if(!isAdmin){ alert('Apenas administradores podem anexar documentos.'); return; }
+      if(file.type && file.type!=='application/pdf' && !/\.pdf$/i.test(file.name)){
+        alert('Envie apenas PDF.'); return;
+      }
+      const path = (isForn?'forn/':'carmak/') + id + '/' + Date.now() + '_' + file.name.replace(/[^\w.\-]+/g,'_');
+      const up = await uploadToBucket('licencas-docs', path, file);
+      doc_path = up.path;
+      doc_nome = up.nome;
     }
+    const payload = {
+      id,
+      cnpj: emptyToNull(document.getElementById('lic_cnpj').value),
+      localidade: emptyToNull(document.getElementById('lic_localidade').value),
+      endereco: emptyToNull(document.getElementById('lic_endereco').value),
+      tipo,
+      numero: emptyToNull(document.getElementById('lic_numero').value),
+      orgao: emptyToNull(document.getElementById('lic_orgao').value),
+      data_solicitacao: emptyToNull(document.getElementById('lic_data_sol').value),
+      valida_ate: emptyToNull(document.getElementById('lic_valida').value),
+      status: document.getElementById('lic_status').value || null,
+      observacoes: emptyToNull(document.getElementById('lic_obs').value),
+      doc_url: doc_path,
+      doc_nome: doc_nome,
+      doc_atualizado_em: file ? new Date().toISOString() : undefined
+    };
+    // remove undefined keys
+    Object.keys(payload).forEach(k=>{ if(payload[k]===undefined) delete payload[k]; });
+    const table = isForn ? 'licencas_fornecedores' : 'licencas';
+    const { error } = await sb.from(table).upsert(payload);
     if(error) throw error;
     closeLicModal();
-    await refreshLicencasAndRender();
+    if(isForn){
+      await loadLicencasFornecedoresFromCloud();
+      renderLicencas();
+    } else {
+      await refreshLicencasAndRender();
+    }
   }catch(e){
     console.error(e);
-    alert('Erro ao salvar: ' + (e.message || e));
+    alert('Erro ao salvar: '+(e.message||e));
   }finally{
     if(btn){ btn.disabled = false; btn.textContent = 'Salvar'; }
   }
 }
+
 async function deleteLicenca(id){
   if(!id){ alert('Registro sem ID do banco (recarregue a página após o login).'); return; }
   if(!confirm('Excluir esta licença definitivamente?')) return;
@@ -4552,7 +4584,8 @@ async function syncModulesFromCloud(){
         id:r.id, 'CNPJ':r.cnpj||'', 'Localidade':r.localidade||'', 'Endereço':r.endereco||'',
         'Tipo de Licença':r.tipo||'', 'Nº':r.numero||'', 'Órgão Emissor':r.orgao||'',
         'Data Solicitação Renovação':r.data_solicitacao||'', 'Válida até':r.valida_ate||'',
-        'Status':r.status||'', 'Observações':r.observacoes||''
+        'Status':r.status||'', 'Observações':r.observacoes||'',
+        doc_url:r.doc_url||'', doc_nome:r.doc_nome||'', doc_path:r.doc_url||''
       }));
     } else if(e4) out.forn = e4.message;
     saveLocalData();
@@ -4701,15 +4734,36 @@ function renderPlanoAcao(){
     const tim = acaoTiming(a);
     const micros = (a.micros||[]).map(m=>`
       <div class="micro">
-        <input type="checkbox" ${m.done?'checked':''} onchange="toggleMicro('${a.id}','${m.id}')">
+        <input type="checkbox" ${m.done?'checked':''} ${isAdmin?'':'disabled'} onchange="toggleMicro('${a.id}','${m.id}')">
         <span style="${m.done?'text-decoration:line-through;opacity:.65':''}">${esc(m.text)}</span>
       </div>`).join('') || '<div class="micro" style="color:var(--muted)">Sem microações</div>';
-    return `<div class="action-card">
+    const movs = (DATA_LOCAL.movimentacoes[a.id] || []).slice().sort((x,y)=>String(y.data).localeCompare(String(x.data)));
+    const tl = movs.map(m=>{
+      const file = m.arquivo_nome
+        ? `<div class="tl-file"><a href="#" onclick="event.preventDefault();openPlanoFile('${esc(m.arquivo_path||m.arquivo_url||'')}','${esc(m.arquivo_nome)}')">📎 ${esc(m.arquivo_nome)}</a></div>`
+        : '';
+      return `<div class="timeline-item">
+        <div class="tl-date">${fmtDateISO(m.data)}</div>
+        <div class="tl-text">${esc(m.texto||'')}</div>
+        ${file}
+      </div>`;
+    }).join('') || '<div class="empty-state" style="padding:8px;font-size:12px">Nenhuma movimentação registrada.</div>';
+    const compose = isAdmin ? `
+      <div class="timeline-compose admin-only" style="display:block">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">Nova movimentação</div>
+        <div class="grid2m">
+          <div class="mf"><label>Data</label><input type="date" id="mov_data_${a.id}" value="${todayISO()}"></div>
+          <div class="mf"><label>PDF ou foto (opcional)</label><input type="file" id="mov_file_${a.id}" accept="application/pdf,image/*,.pdf" style="font-size:12px"></div>
+        </div>
+        <textarea id="mov_texto_${a.id}" placeholder="Descreva a movimentação / andamento…"></textarea>
+        <button type="button" class="btn-ma gold" style="margin-top:8px" onclick="addMovimentacao('${a.id}')">+ Registrar movimentação</button>
+      </div>` : '';
+    return `<div class="action-card" id="acao-card-${a.id}">
       <div class="ac-head">
         <div class="ac-title">${esc(a.descricao)}</div>
         <div style="display:flex;gap:6px">
-          <button type="button" class="btn-ma ghost" style="padding:6px 10px;font-size:11px" onclick="openAcaoById('${a.id}')">Editar</button>
-          <button type="button" class="btn-ma danger" style="padding:6px 10px;font-size:11px" onclick="deleteAcao('${a.id}')">Excluir</button>
+          <button type="button" class="btn-ma ghost admin-only-inline" style="padding:6px 10px;font-size:11px" onclick="openAcaoById('${a.id}')">Editar</button>
+          <button type="button" class="btn-ma danger admin-only-inline" style="padding:6px 10px;font-size:11px" onclick="deleteAcao('${a.id}')">Excluir</button>
         </div>
       </div>
       <div class="ac-meta">
@@ -4722,9 +4776,94 @@ function renderPlanoAcao(){
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px">${prog}% concluído</div>
       <div class="ac-prog"><span style="width:${prog}%"></span></div>
       ${micros}
+      <div class="timeline">
+        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">Histórico de movimentações</div>
+        ${tl}
+        ${compose}
+        <button type="button" class="btn-ma primary admin-only-inline" style="margin-top:10px" onclick="salvarAlteracoesAcao('${a.id}')">Salvar alterações</button>
+      </div>
     </div>`;
   }).join('');
 }
+async function loadMovimentacoesForAcoes(){
+  if(!sb || !currentUser) return;
+  try{
+    const { data, error } = await sb.from('plano_acao_movimentacoes').select('*').order('data',{ascending:false});
+    if(error){ console.warn('[MA] movimentacoes', error.message); return; }
+    DATA_LOCAL.movimentacoes = {};
+    (data||[]).forEach(r=>{
+      const aid = r.acao_id;
+      if(!DATA_LOCAL.movimentacoes[aid]) DATA_LOCAL.movimentacoes[aid]=[];
+      DATA_LOCAL.movimentacoes[aid].push({
+        id:r.id, acao_id:aid, data:r.data, texto:r.texto,
+        arquivo_url:r.arquivo_url, arquivo_nome:r.arquivo_nome, arquivo_tipo:r.arquivo_tipo,
+        arquivo_path:r.arquivo_url
+      });
+    });
+  }catch(e){ console.warn(e); }
+}
+async function addMovimentacao(acaoId){
+  if(!isAdmin){ alert('Apenas administradores podem registrar movimentações.'); return; }
+  if(!sb || !currentUser){ alert('Faça login.'); return; }
+  const texto = (document.getElementById('mov_texto_'+acaoId)?.value||'').trim();
+  const data = document.getElementById('mov_data_'+acaoId)?.value || todayISO();
+  if(!texto){ alert('Descreva a movimentação.'); return; }
+  const fileEl = document.getElementById('mov_file_'+acaoId);
+  const file = fileEl && fileEl.files && fileEl.files[0];
+  let arquivo_url = null, arquivo_nome = null, arquivo_tipo = null;
+  try{
+    if(file){
+      const path = acaoId + '/' + Date.now() + '_' + file.name.replace(/[^\w.\-]+/g,'_');
+      const up = await uploadToBucket('plano-acao-docs', path, file);
+      arquivo_url = up.path;
+      arquivo_nome = up.nome;
+      arquivo_tipo = file.type && file.type.startsWith('image/') ? 'image' : 'pdf';
+    }
+    const payload = {
+      id: uid(),
+      acao_id: acaoId,
+      data,
+      texto,
+      arquivo_url,
+      arquivo_nome,
+      arquivo_tipo,
+      created_by: currentUser.id
+    };
+    const { error } = await sb.from('plano_acao_movimentacoes').insert(payload);
+    if(error) throw error;
+    await loadMovimentacoesForAcoes();
+    renderPlanoAcao();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao registrar: '+(e.message||e));
+  }
+}
+async function salvarAlteracoesAcao(acaoId){
+  if(!isAdmin){ alert('Apenas administradores podem salvar alterações.'); return; }
+  // re-upsert ação (microações já salvas no toggle) + garantir sync
+  loadLocalData();
+  const a = DATA_LOCAL.acoes.find(x=>x.id===acaoId);
+  if(!a){ alert('Ação não encontrada.'); return; }
+  if(sb && currentUser){
+    const { error } = await sb.from('plano_acoes').upsert({
+      id:a.id, criacao:a.criacao, filial:a.filial, descricao:a.descricao,
+      responsavel:a.responsavel, previsao:a.previsao, concluida:a.concluida,
+      micros:a.micros||[], updated_at:new Date().toISOString()
+    });
+    if(error){ alert('Erro: '+error.message); return; }
+  }
+  await loadMovimentacoesForAcoes();
+  alert('Alterações salvas.');
+  renderPlanoAcao();
+}
+async function openPlanoFile(path, nome){
+  if(!path){ alert('Arquivo indisponível.'); return; }
+  if(/^https?:/i.test(path)){ window.open(path,'_blank'); return; }
+  const u = await signedUrlFromPath('plano-acao-docs', path);
+  if(u) window.open(u,'_blank');
+  else alert('Não foi possível abrir: '+nome);
+}
+
 
 /* ---- Cronograma ---- */
 function openReminderModal(){
@@ -5144,10 +5283,65 @@ function showAppAfterLogin(){
   updateChrome();
   loadAllModulesFromCloud().then(res=>{
     console.info('[MA] Sincronização pós-login concluída', res);
-    syncModulesFromCloud().then(r=>console.info('[MA] Módulos locais/cloud', r));
-    renderNotifications();
+    Promise.all([syncModulesFromCloud(), loadAdminProfile()]).then(()=>{
+      renderNotifications();
+    });
   });
 }
+async function loadAdminProfile(){
+  isAdmin = false;
+  document.body.classList.remove('is-admin');
+  if(!sb || !currentUser) return false;
+  try{
+    const { data, error } = await sb.from('perfis').select('is_admin').eq('user_id', currentUser.id).maybeSingle();
+    if(!error && data && data.is_admin){
+      isAdmin = true;
+      document.body.classList.add('is-admin');
+    }
+  }catch(e){ console.warn('[MA] perfis', e); }
+  // fallback: se tabela não existir, permite upload (evita bloquear operação)
+  if(!isAdmin){
+    try{
+      const { error } = await sb.from('perfis').select('user_id').limit(1);
+      if(error && /relation|does not exist|schema cache/i.test(error.message||'')){
+        isAdmin = true;
+        document.body.classList.add('is-admin');
+        console.warn('[MA] Tabela perfis ausente — tratando como admin para não bloquear uploads');
+      }
+    }catch(_e){}
+  }
+  return isAdmin;
+}
+async function uploadToBucket(bucket, path, file){
+  if(!sb || !currentUser) throw new Error('Sem login');
+  if(file.size > 20 * 1024 * 1024) throw new Error('Arquivo acima de 20 MB');
+  const { error } = await sb.storage.from(bucket).upload(path, file, { upsert: true, contentType: file.type||undefined });
+  if(error) throw error;
+  const { data } = sb.storage.from(bucket).getPublicUrl(path);
+  // bucket privado: gerar signed URL para download
+  const signed = await sb.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 7); // 7 dias
+  if(signed.error) throw signed.error;
+  return { path, url: signed.data.signedUrl, publicUrl: data?.publicUrl||null, nome: file.name, tipo: file.type };
+}
+async function signedUrlFromPath(bucket, path){
+  if(!path || !sb) return null;
+  // path pode ser só o path no bucket
+  const { data, error } = await sb.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24);
+  if(error){ console.warn(error); return null; }
+  return data.signedUrl;
+}
+function renderLicDocCurrent(nome, url){
+  const el = document.getElementById('lic_doc_current');
+  if(!el) return;
+  if(nome && url){
+    el.innerHTML = `<span>📄 <b>${esc(nome)}</b></span> <a href="${esc(url)}" target="_blank" rel="noopener">Abrir / baixar</a>`;
+  } else if(nome){
+    el.innerHTML = `<span>📄 <b>${esc(nome)}</b></span>`;
+  } else {
+    el.textContent = 'Nenhum PDF anexado';
+  }
+}
+
 function showLoginScreen(){
   document.getElementById('login').classList.remove('hidden');
   document.getElementById('view-guia').classList.remove('on');
