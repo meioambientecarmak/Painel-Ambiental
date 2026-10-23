@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meio Ambiente · Carmak · Gestão Ambiental</title>
+<!-- MA-BUILD: 2026-10-23-lic-hub-v2 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -1801,28 +1802,45 @@ function getLicSource(){
   return DATA.docs || [];
 }
 function setLicTab(tab){
-  licTab = tab==='fornecedores' ? 'fornecedores' : 'carmak';
+  if(tab==='fornecedores') licTab = 'fornecedores';
+  else if(tab==='carmak') licTab = 'carmak';
+  else licTab = tab;
 }
 function showLicHub(){
-  licTab = 'carmak';
+  licTab = null;
   const hub = document.getElementById('lic-hub');
   const content = document.getElementById('lic-content');
-  if(hub){ hub.classList.add('on'); hub.style.display = 'block'; }
-  if(content){ content.classList.remove('on'); content.style.display = 'none'; }
+  if(hub){
+    hub.classList.add('on');
+    hub.style.setProperty('display','block','important');
+  }
+  if(content){
+    content.classList.remove('on');
+    content.style.setProperty('display','none','important');
+  }
   const h1 = document.querySelector('#view-licencas .page-h h1');
   const p = document.querySelector('#view-licencas .page-h p');
   if(h1) h1.textContent = 'Licenças e Alvarás';
-  if(p) p.textContent = 'Escolha a carteira · Carmak ou Fornecedores';
+  if(p) p.textContent = 'Escolha a carteira abaixo';
   const ctx = document.getElementById('ctx-licencas');
   if(ctx) ctx.textContent = 'Selecione Carmak ou Fornecedores';
+  // limpa filtros da lista enquanto estiver no hub
+  const filt = document.getElementById('filt-licencas');
+  if(filt) filt.innerHTML = '';
   updateChrome();
 }
 async function enterLicTab(tab){
   setLicTab(tab);
   const hub = document.getElementById('lic-hub');
   const content = document.getElementById('lic-content');
-  if(hub){ hub.classList.remove('on'); hub.style.display = 'none'; }
-  if(content){ content.classList.add('on'); content.style.display = 'block'; }
+  if(hub){
+    hub.classList.remove('on');
+    hub.style.setProperty('display','none','important');
+  }
+  if(content){
+    content.classList.add('on');
+    content.style.setProperty('display','block','important');
+  }
   const h1 = document.querySelector('#view-licencas .page-h h1');
   const p = document.querySelector('#view-licencas .page-h p');
   if(h1) h1.textContent = tab==='fornecedores' ? 'Licenças · Fornecedores' : 'Licenças · Carmak';
@@ -1988,14 +2006,16 @@ function pickModule(mod){
   const view = document.getElementById('view-'+mod);
   if(view) view.classList.add('on');
   updateChrome();
-  renderFilters();
-  renderData();
   toggleSide(false);
   window.scrollTo({top:0,behavior:'smooth'});
+  // Licenças: SEMPRE começa no hub (2 cartões). Não renderiza lista ainda.
   if(mod === 'licencas'){
     showLicHub();
+    return;
   }
-  else if(mod === 'residuos'){ loadResiduosFromCloud().then(()=>{ renderFilters(); renderResiduos(); }); }
+  renderFilters();
+  renderData();
+  if(mod === 'residuos'){ loadResiduosFromCloud().then(()=>{ renderFilters(); renderResiduos(); }); }
   else if(mod === 'financas'){
     Promise.all([loadResiduosFromCloud(), loadReceitasFromCloud()]).then(()=>{ renderFilters(); renderFinancas(); });
   }
