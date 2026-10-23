@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Meio Ambiente · Carmak · Gestão Ambiental</title>
-<!-- MA-BUILD: 2026-10-23-docs-v2 -->
+<!-- MA-BUILD: 2026-10-23-anexos-v1 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -1879,10 +1879,12 @@ async function enterLicTab(tab){
     : 'Conformidade legal · ISO 14001 · Plano de renovação';
   updateChrome();
   renderFilters();
+  await loadLicencasAnexos();
   if(tab==='carmak'){
     await refreshLicencasAndRender();
   } else {
     await loadLicencasFornecedoresFromCloud();
+    (DATA_LOCAL.docsFornecedores||[]).forEach(r=>applyAnexoToRow(r,'fornecedores'));
     renderLicencas();
   }
 }
@@ -3301,20 +3303,7 @@ async function saveLicenca(){
   const btn = document.getElementById('btn-lic-save');
   if(btn){ btn.disabled = true; btn.textContent = 'Salvando…'; }
   try{
-    let doc_path = document.getElementById('lic_doc_url').value || null;
-    let doc_nome = document.getElementById('lic_doc_nome').value || null;
-    const fileEl = document.getElementById('lic_doc_file');
-    const file = fileEl && fileEl.files && fileEl.files[0];
-    if(file){
-      if(!isAdmin){ alert('Apenas administradores podem anexar documentos.'); return; }
-      if(file.type && file.type!=='application/pdf' && !/\.pdf$/i.test(file.name)){
-        alert('Envie apenas PDF.'); return;
-      }
-      const path = (isForn?'forn/':'carmak/') + id + '/' + Date.now() + '_' + file.name.replace(/[^\w.\-]+/g,'_');
-      const up = await uploadToBucket('licencas-docs', path, file);
-      doc_path = up.path;
-      doc_nome = up.nome;
-    }
+    // 1) Salva a licença SEM campos de documento (evita schema inválido)
     const basePayload = {
       id,
       cnpj: emptyToNull(document.getElementById('lic_cnpj').value),
@@ -3328,28 +3317,43 @@ async function saveLicenca(){
       status: document.getElementById('lic_status').value || null,
       observacoes: emptyToNull(document.getElementById('lic_obs').value)
     };
-    const payload = {
-      ...basePayload,
-      doc_url: doc_path,
-      doc_nome: doc_nome,
-      doc_atualizado_em: file ? new Date().toISOString() : undefined
-    };
-    Object.keys(payload).forEach(k=>{ if(payload[k]===undefined) delete payload[k]; });
     const table = isForn ? 'licencas_fornecedores' : 'licencas';
-    let { error } = await sb.from(table).upsert(payload);
-    // Schema sem colunas de documento → tenta gravar a licença e avisa
-    if(error && /schema|column|doc_url|doc_nome|incompatible/i.test(error.message||'')){
-      console.warn('[MA] upsert com doc falhou, tentando sem doc_*', error.message);
-      ({ error } = await sb.from(table).upsert(basePayload));
-      if(!error){
-        alert('Licença salva, mas as colunas de PDF ainda não existem no Supabase.\n\nExecute no SQL Editor:\n\nalter table public.'+table+'\n  add column if not exists doc_url text,\n  add column if not exists doc_nome text,\n  add column if not exists doc_atualizado_em timestamptz;\n\nDepois: Settings → API → Reload schema.');
-        closeLicModal();
-        if(isForn){ await loadLicencasFornecedoresFromCloud(); renderLicencas(); }
-        else { await refreshLicencasAndRender(); }
-        return;
+    let { error } = await sb.from(table).upsert(basePayload);
+    if(error) throw error;
+
+    // 2) PDF → Storage + tabela licencas_anexos
+    const fileEl = document.getElementById('lic_doc_file');
+    const file = fileEl && fileEl.files && fileEl.files[0];
+    if(file){
+      if(!isAdmin){
+        alert('Licença salva. Apenas administradores podem anexar PDF.');
+      } else {
+        if(file.type && file.type!=='application/pdf' && !/\.pdf$/i.test(file.name)){
+          throw new Error('Envie apenas PDF.');
+        }
+        const origem = isForn ? 'fornecedores' : 'carmak';
+        const storagePath = origem + '/' + id + '/' + Date.now() + '_' + file.name.replace(/[^\w.\-]+/g,'_');
+        try{
+          const up = await uploadToBucket('licencas-docs', storagePath, file);
+          const { error: e2 } = await sb.from('licencas_anexos').upsert({
+            licenca_id: String(id),
+            origem,
+            doc_path: up.path,
+            doc_nome: up.nome,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'licenca_id,origem' });
+          if(e2) throw e2;
+        }catch(upErr){
+          console.error(upErr);
+          alert('Licença salva, mas o PDF falhou: '+(upErr.message||upErr)+'\n\nVerifique: bucket licencas-docs e tabela licencas_anexos (SQL criar_licencas_anexos.sql).');
+          closeLicModal();
+          if(isForn){ await loadLicencasFornecedoresFromCloud(); renderLicencas(); }
+          else { await refreshLicencasAndRender(); }
+          return;
+        }
       }
     }
-    if(error) throw error;
+
     closeLicModal();
     if(isForn){
       await loadLicencasFornecedoresFromCloud();
@@ -3954,6 +3958,35 @@ async function deleteEfluente(id){
 }
 
 /* ---- Supabase: Licenças ---- */
+
+async function loadLicencasAnexos(){
+  if(!sb || !currentUser) return {};
+  try{
+    const { data, error } = await sb.from('licencas_anexos').select('*');
+    if(error){ console.warn('[MA] anexos', error.message); return {}; }
+    const map = {};
+    (data||[]).forEach(r=>{
+      map[r.origem + '|' + r.licenca_id] = r;
+    });
+    window.__licAnexos = map;
+    return map;
+  }catch(e){
+    console.warn(e);
+    return {};
+  }
+}
+function applyAnexoToRow(row, origem){
+  if(!row || !row.id) return row;
+  const map = window.__licAnexos || {};
+  const a = map[origem + '|' + row.id];
+  if(a){
+    row.doc_path = a.doc_path;
+    row.doc_url = a.doc_path;
+    row.doc_nome = a.doc_nome;
+  }
+  return row;
+}
+
 function mapLicencaRow(row){
   return {
     id: row.id,
