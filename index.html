@@ -732,6 +732,89 @@ body.on-guia{
   .guia{display:none!important}
   .view{display:block!important}
 }
+
+/* New modules */
+.guia-grid{grid-template-columns:repeat(3,1fr)!important}
+@media(max-width:900px){.guia-grid{grid-template-columns:repeat(2,1fr)!important}}
+@media(max-width:600px){.guia-grid{grid-template-columns:1fr!important}}
+.tabs-bar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tab-btn{
+  appearance:none;border:1px solid var(--line-2);background:#fff;color:var(--ink);
+  padding:9px 18px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;
+}
+.tab-btn:hover{border-color:var(--aqua);color:var(--navy)}
+.tab-btn.active{
+  background:linear-gradient(135deg,var(--navy),var(--teal));color:#fff;border-color:transparent;
+  box-shadow:0 4px 12px rgba(11,46,31,.18);
+}
+.cal-wrap{display:grid;grid-template-columns:1fr 280px;gap:14px}
+@media(max-width:900px){.cal-wrap{grid-template-columns:1fr}}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-dow{font-size:10px;font-weight:700;color:var(--muted);text-align:center;padding:4px 0}
+.cal-day{
+  min-height:64px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;
+  background:#fff;font-size:11px;cursor:pointer;position:relative;overflow:hidden;
+}
+.cal-day:hover{border-color:var(--gold);background:var(--tint-2)}
+.cal-day.other{opacity:.4}
+.cal-day.today{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold)}
+.cal-day .dn{font-weight:700;color:var(--navy);font-size:12px}
+.cal-day .dots{display:flex;flex-wrap:wrap;gap:2px;margin-top:2px}
+.cal-day .dot-mtr{width:6px;height:6px;border-radius:50%;background:var(--aqua-2)}
+.cal-day .dot-rem{width:6px;height:6px;border-radius:50%;background:var(--gold)}
+.cal-day .dot-act{width:6px;height:6px;border-radius:50%;background:var(--urgent)}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px}
+.cal-nav h3{font-family:'Space Grotesk',sans-serif;font-size:16px;color:var(--navy);margin:0}
+.cal-side .rem-item{
+  padding:10px 12px;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:var(--tint-2);font-size:12px;
+}
+.cal-side .rem-item b{display:block;color:var(--navy);margin-bottom:2px}
+.action-card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow);
+}
+.action-card .ac-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:8px}
+.action-card .ac-title{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;color:var(--navy)}
+.action-card .ac-meta{font-size:11.5px;color:var(--muted);display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}
+.action-card .ac-prog{height:8px;background:var(--tint);border-radius:6px;overflow:hidden;margin:8px 0}
+.action-card .ac-prog span{display:block;height:100%;background:linear-gradient(90deg,var(--navy-2),var(--aqua-2));border-radius:6px}
+.action-card .micro{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:12.5px}
+.action-card .micro input{width:16px;height:16px;accent-color:var(--ok)}
+.action-card .delay{font-size:11px;font-weight:700}
+.action-card .delay.late{color:var(--crit)}
+.action-card .delay.early{color:var(--ok)}
+.action-card .delay.ontrack{color:var(--warn)}
+.photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:10px}
+.photo-card{
+  border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;position:relative;
+}
+.photo-card img{width:100%;height:140px;object-fit:cover;display:block;background:var(--tint)}
+.photo-card .pc-body{padding:8px 10px}
+.photo-card .pc-body input,.photo-card .pc-body textarea{
+  width:100%;border:1px solid var(--line-2);border-radius:6px;padding:6px 8px;font-size:12px;margin-top:4px;
+}
+.photo-card .pc-del{
+  position:absolute;top:6px;right:6px;background:rgba(185,28,28,.9);color:#fff;border:none;
+  width:26px;height:26px;border-radius:8px;cursor:pointer;font-size:14px;
+}
+.upload-zone{
+  border:2px dashed var(--line-2);border-radius:14px;padding:28px;text-align:center;
+  background:var(--tint-2);cursor:pointer;transition:border-color .15s;
+}
+.upload-zone:hover{border-color:var(--gold)}
+.upload-zone input{display:none}
+.insp-form .mf{margin-bottom:10px}
+.insp-form label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--muted);display:block;margin-bottom:4px}
+.insp-form input,.insp-form select,.insp-form textarea{
+  width:100%;padding:9px 11px;border:1px solid var(--line-2);border-radius:8px;font-size:13px;background:#fff;
+}
+.insp-form textarea{min-height:70px;resize:vertical}
+.insp-list-item{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;
+  padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:#fff;
+}
+.insp-list-item:hover{border-color:var(--gold)}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -826,6 +909,9 @@ body.on-guia{
     <button type="button" class="nav" data-mod="efluentes" onclick="pickModule('efluentes')"><span class="ic">💧</span> Efluentes</button>
     <button type="button" class="nav" data-mod="licencas" onclick="pickModule('licencas')"><span class="ic">📋</span> Licenças e Alvarás</button>
     <button type="button" class="nav" data-mod="gestaosc" onclick="pickModule('gestaosc')"><span class="ic">🧾</span> Gestão de SC</button>
+    <button type="button" class="nav" data-mod="planoacao" onclick="pickModule('planoacao')"><span class="ic">✓</span> Plano de Ação</button>
+    <button type="button" class="nav" data-mod="inspecoes" onclick="pickModule('inspecoes')"><span class="ic">📷</span> Inspeções Técnicas</button>
+    <button type="button" class="nav" data-mod="cronograma" onclick="pickModule('cronograma')"><span class="ic">📅</span> Cronograma</button>
   </div>
   <div class="side-foot">
     <div style="margin-bottom:8px">Painel gerencial · ISO 14001</div>
@@ -865,6 +951,21 @@ body.on-guia{
         <div class="gc-ic">🧾</div>
         <h3>Gestão de SC</h3>
         <p>Custos gerais de meio ambiente por solicitação de compra.</p>
+      </button>
+      <button type="button" class="guia-card" onclick="pickModule('planoacao')">
+        <div class="gc-ic">✓</div>
+        <h3>Plano de Ação</h3>
+        <p>Ações corretivas, microtarefas, progresso e prazos.</p>
+      </button>
+      <button type="button" class="guia-card" onclick="pickModule('inspecoes')">
+        <div class="gc-ic">📷</div>
+        <h3>Inspeções Técnicas</h3>
+        <p>Relatórios fotográficos, adequações e evidências de campo.</p>
+      </button>
+      <button type="button" class="guia-card" onclick="pickModule('cronograma')">
+        <div class="gc-ic">📅</div>
+        <h3>Cronograma</h3>
+        <p>Calendário com MTRs, lembretes e compromissos ambientais.</p>
       </button>
     </div>
   </div>
@@ -963,6 +1064,10 @@ body.on-guia{
       <p>Conformidade legal · ISO 14001 · Plano de renovação</p>
       <div class="ctx" id="ctx-licencas"></div>
     </div>
+    <div class="tabs-bar">
+      <button type="button" class="tab-btn active" id="tab-lic-carmak" onclick="setLicTab('carmak')">Carmak</button>
+      <button type="button" class="tab-btn" id="tab-lic-forn" onclick="setLicTab('fornecedores')">Fornecedores</button>
+    </div>
     <div class="filters-inline" id="filt-licencas"></div>
     <div class="kpi-row" id="kpi-licencas"></div>
 
@@ -1028,9 +1133,113 @@ body.on-guia{
       <div class="table-wrap" style="max-height:480px"><table class="data" id="tbl-gestaosc"><thead></thead><tbody></tbody></table></div>
     </div>
   </div>
+
+  <!-- PLANO DE AÇÃO -->
+  <div class="view" id="view-planoacao">
+    <div class="page-h">
+      <h1>Plano de Ação</h1>
+      <p>Ações corretivas e preventivas · microtarefas · acompanhamento de prazos</p>
+      <div class="ctx" id="ctx-planoacao"></div>
+    </div>
+    <div class="filters-inline" id="filt-planoacao"></div>
+    <div class="kpi-row" id="kpi-planoacao"></div>
+    <div id="planoacao-list"></div>
+  </div>
+
+  <!-- INSPEÇÕES TÉCNICAS -->
+  <div class="view" id="view-inspecoes">
+    <div class="page-h">
+      <h1>Inspeções Técnicas</h1>
+      <p>Relatórios fotográficos no padrão Carmak · evidências e adequações</p>
+      <div class="ctx" id="ctx-inspecoes"></div>
+    </div>
+    <div class="filters-inline" id="filt-inspecoes"></div>
+    <div id="inspecoes-list"></div>
+    <div class="panel" id="inspecao-editor" style="display:none">
+      <h3 id="insp-editor-title">Nova inspeção técnica</h3>
+      <p class="panel-sub">Modelo alinhado ao Relatório Técnico Fotográfico</p>
+      <div class="insp-form" id="insp-form"></div>
+    </div>
+  </div>
+
+  <!-- CRONOGRAMA -->
+  <div class="view" id="view-cronograma">
+    <div class="page-h">
+      <h1>Cronograma</h1>
+      <p>Calendário de MTRs, lembretes e compromissos ambientais</p>
+      <div class="ctx" id="ctx-cronograma"></div>
+    </div>
+    <div class="filters-inline" id="filt-cronograma"></div>
+    <div class="cal-wrap">
+      <div class="panel">
+        <div class="cal-nav">
+          <button type="button" class="btn-ma ghost" onclick="calShift(-1)">‹</button>
+          <h3 id="cal-title">—</h3>
+          <button type="button" class="btn-ma ghost" onclick="calShift(1)">›</button>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="legend" style="margin-top:12px">
+          <span><i style="background:var(--aqua-2)"></i> MTR / destinação</span>
+          <span><i style="background:var(--gold)"></i> Lembrete</span>
+          <span><i style="background:var(--urgent)"></i> Ação / prazo</span>
+        </div>
+      </div>
+      <div class="panel cal-side">
+        <h3>Dia selecionado</h3>
+        <p class="panel-sub" id="cal-day-label">Clique em um dia</p>
+        <div id="cal-day-detail"></div>
+        <button type="button" class="btn-ma gold" style="width:100%;margin-top:10px" onclick="openReminderModal()">+ Lembrete neste dia</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 
+
+
+<!-- Modal Plano de Ação -->
+<div class="modal-bg" id="modal-acao" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:640px">
+    <div class="mh"><span id="modal-acao-title">Nova ação</span>
+      <button type="button" onclick="closeAcaoModal()" aria-label="Fechar">×</button></div>
+    <div class="mb">
+      <input type="hidden" id="acao_id">
+      <div class="grid2m">
+        <div class="mf"><label>Data de criação *</label><input type="date" id="acao_criacao"></div>
+        <div class="mf"><label>Cliente / Filial *</label><input id="acao_filial" list="dl-unidades"></div>
+      </div>
+      <div class="mf"><label>Descrição da ação *</label><textarea id="acao_desc"></textarea></div>
+      <div class="grid2m">
+        <div class="mf"><label>Responsável *</label><input id="acao_resp"></div>
+        <div class="mf"><label>Previsão de término *</label><input type="date" id="acao_prev"></div>
+      </div>
+      <div class="mf"><label>Microações (uma por linha)</label><textarea id="acao_micros" placeholder="Ex.: Demarcar área de óleos&#10;Identificar coletores&#10;Treinar equipe"></textarea></div>
+    </div>
+    <div class="ma">
+      <button type="button" class="btn-ma ghost" onclick="closeAcaoModal()">Cancelar</button>
+      <button type="button" class="btn-ma primary" id="btn-acao-save" onclick="saveAcao()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Lembrete Cronograma -->
+<div class="modal-bg" id="modal-rem" role="dialog" aria-modal="true">
+  <div class="modal-box" style="max-width:440px">
+    <div class="mh"><span>Novo lembrete</span>
+      <button type="button" onclick="closeRemModal()" aria-label="Fechar">×</button></div>
+    <div class="mb">
+      <input type="hidden" id="rem_id">
+      <div class="mf"><label>Data *</label><input type="date" id="rem_data"></div>
+      <div class="mf"><label>Título *</label><input id="rem_titulo"></div>
+      <div class="mf"><label>Descrição</label><textarea id="rem_desc"></textarea></div>
+      <div class="mf"><label>Unidade (opcional)</label><input id="rem_unidade" list="dl-unidades"></div>
+    </div>
+    <div class="ma">
+      <button type="button" class="btn-ma ghost" onclick="closeRemModal()">Cancelar</button>
+      <button type="button" class="btn-ma primary" onclick="saveReminder()">Salvar</button>
+    </div>
+  </div>
+</div>
 
 <!-- Modal Resíduos -->
 <div class="modal-bg" id="modal-res" role="dialog" aria-modal="true">
@@ -1251,7 +1460,10 @@ const MODULE_LABELS = {
   financas:'Finanças',
   efluentes:'Efluentes',
   licencas:'Licenças e Alvarás',
-  gestaosc:'Gestão de SC'
+  gestaosc:'Gestão de SC',
+  planoacao:'Plano de Ação',
+  inspecoes:'Inspeções Técnicas',
+  cronograma:'Cronograma'
 };
 const UNIT_META = [
   {"u":"São Leopoldo","t":"Matriz"},
@@ -1272,7 +1484,11 @@ let selectedUnit = '';
 let selectedEfSystem = 'CSAO';
 let selectedUnitGroup = null; // 'Filial' | 'Operacao' | null
 let screen = 'guia';
-const filters = { ano:'', mes:'', status:'', venc:'', categoria:'' };
+const filters = { ano:'', mes:'', status:'', venc:'', categoria:'', mtr:'', residuo:'', transportador:'', destinatario:'' };
+let licTab = 'carmak';
+let calCursor = new Date();
+let calSelectedDate = null;
+let DATA_LOCAL = { acoes: [], lembretes: [], inspecoes: [], docsFornecedores: [] };
 
 function clearFilters(){
   filters.ano = '';
@@ -1280,9 +1496,20 @@ function clearFilters(){
   filters.status = '';
   filters.venc = '';
   filters.categoria = '';
+  filters.mtr = '';
+  filters.residuo = '';
+  filters.transportador = '';
+  filters.destinatario = '';
   selectedUnit = '';
   selectedUnitGroup = null;
   selectedEfSystem = 'CSAO';
+}
+function bindExtraFilters(ids, keys){
+  ids.forEach((id,i)=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.onchange = ()=>{ filters[keys[i]] = el.value; renderData(); };
+  });
 }
 
 // Garante array local (dados só via Supabase)
@@ -1369,6 +1596,10 @@ function filteredResiduos(){
     if(!matchUnit(r.Unidade)) return false;
     if(filters.ano && String(r.Ano)!==String(filters.ano)) return false;
     if(filters.mes && r.Mês!==filters.mes) return false;
+    if(filters.mtr && String(r.MTR||'')!==String(filters.mtr)) return false;
+    if(filters.residuo && String(r.Resíduo||r.Residuo||'')!==String(filters.residuo)) return false;
+    if(filters.transportador && String(r.Transportador||'')!==String(filters.transportador)) return false;
+    if(filters.destinatario && String(r.Destinatário||r.Destinatario||'')!==String(filters.destinatario)) return false;
     return true;
   });
 }
@@ -1377,6 +1608,9 @@ function filteredReceitas(){
     if(!matchUnit(r.Unidade)) return false;
     if(filters.ano && String(r.Ano)!==String(filters.ano)) return false;
     if(filters.mes && r.Mês!==filters.mes) return false;
+    if(filters.mtr && String(r.MTR||'')!==String(filters.mtr)) return false;
+    if(filters.residuo && String(r.Resíduo||r.Residuo||'')!==String(filters.residuo)) return false;
+    if(filters.destinatario && String(r.Destinador||r.Destinatário||r.Destinatario||'')!==String(filters.destinatario)) return false;
     return true;
   });
 }
@@ -1393,8 +1627,22 @@ function filteredEfluentes(){
     return true;
   });
 }
+function getLicSource(){
+  if(licTab==='fornecedores'){
+    if(!DATA_LOCAL.docsFornecedores) DATA_LOCAL.docsFornecedores = [];
+    return DATA_LOCAL.docsFornecedores;
+  }
+  return DATA.docs || [];
+}
+function setLicTab(tab){
+  licTab = tab==='fornecedores' ? 'fornecedores' : 'carmak';
+  document.getElementById('tab-lic-carmak')?.classList.toggle('active', licTab==='carmak');
+  document.getElementById('tab-lic-forn')?.classList.toggle('active', licTab==='fornecedores');
+  renderFilters();
+  renderLicencas();
+}
 function filteredDocs(){
-  return DATA.docs.filter(r=>{
+  return getLicSource().filter(r=>{
     if(!matchLoc(r.Localidade)) return false;
     if(filters.status && r.Status!==filters.status) return false;
     if(filters.venc){
@@ -1530,6 +1778,11 @@ function pickModule(mod){
   }
   else if(mod === 'efluentes'){ loadEfluentesFromCloud().then(()=>{ renderFilters(); renderEfluentes(); }); }
   else if(mod === 'gestaosc'){ loadGestaoScFromCloud().then(()=>{ renderFilters(); renderGestaoSc(); }); }
+  else if(mod === 'planoacao' || mod === 'inspecoes' || mod === 'cronograma'){
+    loadLocalData();
+    renderFilters();
+    renderData();
+  }
 }
 function pickUnit(unit){
   selectedUnit = unit || '';
@@ -1563,6 +1816,9 @@ function renderData(){
   else if(selectedModule==='efluentes') renderEfluentes();
   else if(selectedModule==='licencas') renderLicencas();
   else if(selectedModule==='gestaosc') renderGestaoSc();
+  else if(selectedModule==='planoacao') renderPlanoAcao();
+  else if(selectedModule==='inspecoes') renderInspecoes();
+  else if(selectedModule==='cronograma') renderCronograma();
 }
 
 function renderFilters(){
@@ -1581,18 +1837,34 @@ function renderFilters(){
   const printBtn = `<button type="button" class="btn-print-report" onclick="printReport()">Imprimir Relatório</button>`;
   const scope = unitScopeHtml();
   if(selectedModule==='residuos'){
-    document.getElementById('filt-residuos').innerHTML = scope + commonAnoMes('fr') +
+    const mtrs = [...new Set((DATA.residuos||[]).map(r=>r.MTR).filter(Boolean))].sort();
+    const resNomes = [...new Set((DATA.residuos||[]).map(r=>r.Resíduo||r.Residuo).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const transps = [...new Set((DATA.residuos||[]).map(r=>r.Transportador).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const dests = [...new Set((DATA.residuos||[]).map(r=>r.Destinatário||r.Destinatario).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    let extra = `<div class="f-group"><label>MTR</label><select id="fr-mtr"><option value="">Todos</option>${mtrs.map(m=>`<option value="${esc(m)}" ${filters.mtr===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
+    extra += `<div class="f-group"><label>Resíduo</label><select id="fr-residuo"><option value="">Todos</option>${resNomes.map(m=>`<option value="${esc(m)}" ${filters.residuo===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
+    extra += `<div class="f-group"><label>Transportador</label><select id="fr-transp"><option value="">Todos</option>${transps.map(m=>`<option value="${esc(m)}" ${filters.transportador===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
+    extra += `<div class="f-group"><label>Destinatário</label><select id="fr-dest"><option value="">Todos</option>${dests.map(m=>`<option value="${esc(m)}" ${filters.destinatario===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
+    document.getElementById('filt-residuos').innerHTML = scope + commonAnoMes('fr') + extra +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openResModal(null)">+ Novo resíduo</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadResiduosFromCloud().then(()=>{renderFilters();renderResiduos();})">↻ Atualizar</button>` +
       printBtn;
     bindFilter('fr-ano','fr-mes');
+    bindExtraFilters(['fr-mtr','fr-residuo','fr-transp','fr-dest'], ['mtr','residuo','transportador','destinatario']);
   } else if(selectedModule==='financas'){
-    document.getElementById('filt-financas').innerHTML = scope + commonAnoMes('ff') +
+    const mtrs = [...new Set([...(DATA.residuos||[]).map(r=>r.MTR),...(DATA.receitas||[]).map(r=>r.MTR)].filter(Boolean))].sort();
+    const resNomes = [...new Set([...(DATA.residuos||[]).map(r=>r.Resíduo||r.Residuo),...(DATA.receitas||[]).map(r=>r.Resíduo||r.Residuo)].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    const dests = [...new Set([...(DATA.residuos||[]).map(r=>r.Destinatário||r.Destinatario),...(DATA.receitas||[]).map(r=>r.Destinador||r.Destinatário)].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+    let extra = `<div class="f-group"><label>MTR</label><select id="ff-mtr"><option value="">Todos</option>${mtrs.map(m=>`<option value="${esc(m)}" ${filters.mtr===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
+    extra += `<div class="f-group"><label>Resíduo</label><select id="ff-residuo"><option value="">Todos</option>${resNomes.map(m=>`<option value="${esc(m)}" ${filters.residuo===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
+    extra += `<div class="f-group"><label>Destinatário</label><select id="ff-dest"><option value="">Todos</option>${dests.map(m=>`<option value="${esc(m)}" ${filters.destinatario===m?'selected':''}>${esc(m)}</option>`).join('')}</select></div>`;
+    document.getElementById('filt-financas').innerHTML = scope + commonAnoMes('ff') + extra +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openRecModal(null)">+ Nova receita</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="openResModal(null)">+ Novo custo (resíduo)</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="Promise.all([loadResiduosFromCloud(),loadReceitasFromCloud()]).then(()=>{renderFilters();renderFinancas();})">↻ Atualizar</button>` +
       printBtn;
     bindFilter('ff-ano','ff-mes');
+    bindExtraFilters(['ff-mtr','ff-residuo','ff-dest'], ['mtr','residuo','destinatario']);
   } else if(selectedModule==='efluentes'){
     document.getElementById('filt-efluentes').innerHTML = scope + commonAnoMes('fe') +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openEfModal(null)">+ Nova medição</button>
@@ -1631,6 +1903,18 @@ function renderFilters(){
         renderData();
       };
     });
+  } else if(selectedModule==='planoacao'){
+    document.getElementById('filt-planoacao').innerHTML = scope +
+      `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openAcaoModal(null)">+ Nova ação</button>
+       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadLocalData();renderPlanoAcao();">↻ Atualizar</button>`;
+  } else if(selectedModule==='inspecoes'){
+    document.getElementById('filt-inspecoes').innerHTML = scope +
+      `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openInspecaoEditor(null)">+ Nova inspeção</button>
+       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadLocalData();renderInspecoes();">↻ Atualizar</button>`;
+  } else if(selectedModule==='cronograma'){
+    document.getElementById('filt-cronograma').innerHTML = scope +
+      `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openReminderModal()">+ Lembrete</button>
+       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="calCursor=new Date();renderCronograma();">Hoje</button>`;
   } else if(selectedModule==='gestaosc'){
     const cats = [...new Set((DATA.gestaoSc||[]).map(r=>r.Categoria).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
     let catOpts = `<option value="">Todas</option>`;
@@ -2694,7 +2978,7 @@ function fillLicDatalists(){
   if(do_) do_.innerHTML = orgs.map(t => `<option value="${esc(t)}">`).join('');
 }
 function openLicModal(row){
-  if(!sb){ alert('Supabase não conectado.'); return; }
+  if(licTab!=='fornecedores' && !sb){ alert('Supabase não conectado.'); return; }
   fillLicDatalists();
   const title = document.getElementById('modal-lic-title');
   document.getElementById('lic_id').value = row && row.id ? row.id : '';
@@ -2715,6 +2999,31 @@ function closeLicModal(){
   document.getElementById('modal-lic').classList.remove('on');
 }
 async function saveLicenca(){
+  if(licTab==='fornecedores'){
+    const id = document.getElementById('lic_id').value || uid();
+    const tipo = (document.getElementById('lic_tipo').value || '').trim();
+    if(!tipo){ alert('Informe o tipo de licença.'); return; }
+    loadLocalData();
+    const row = {
+      id,
+      'CNPJ': document.getElementById('lic_cnpj').value || '',
+      'Localidade': document.getElementById('lic_localidade').value || '',
+      'Endereço': document.getElementById('lic_endereco').value || '',
+      'Tipo de Licença': tipo,
+      'Nº': document.getElementById('lic_numero').value || '',
+      'Órgão Emissor': document.getElementById('lic_orgao').value || '',
+      'Data Solicitação Renovação': document.getElementById('lic_data_sol').value || '',
+      'Válida até': document.getElementById('lic_valida').value || '',
+      'Status': document.getElementById('lic_status').value || '',
+      'Observações': (document.getElementById('lic_obs')||{}).value || ''
+    };
+    const idx = DATA_LOCAL.docsFornecedores.findIndex(x=>x.id===id);
+    if(idx>=0) DATA_LOCAL.docsFornecedores[idx]=row; else DATA_LOCAL.docsFornecedores.push(row);
+    saveLocalData();
+    closeLicModal();
+    renderLicencas();
+    return;
+  }
   if(!sb){ alert('Supabase não conectado.'); return; }
   const id = document.getElementById('lic_id').value || null;
   const tipo = (document.getElementById('lic_tipo').value || '').trim();
@@ -2753,6 +3062,13 @@ async function saveLicenca(){
 async function deleteLicenca(id){
   if(!id){ alert('Registro sem ID do banco (recarregue a página após o login).'); return; }
   if(!confirm('Excluir esta licença definitivamente?')) return;
+  if(licTab==='fornecedores'){
+    loadLocalData();
+    DATA_LOCAL.docsFornecedores = DATA_LOCAL.docsFornecedores.filter(x=>x.id!==id);
+    saveLocalData();
+    renderLicencas();
+    return;
+  }
   if(!sb){ alert('Supabase não conectado.'); return; }
   try{
     const { error } = await sb.from('licencas').delete().eq('id', id);
@@ -3910,6 +4226,490 @@ async function printReport(){
   }
 }
 
+
+/* ========== LOCAL DATA (Plano de Ação, Cronograma, Inspeções, Lic. Fornecedores) ========== */
+function loadLocalData(){
+  try{
+    const raw = localStorage.getItem('carmak_ma_local');
+    if(raw){
+      const parsed = JSON.parse(raw);
+      DATA_LOCAL.acoes = parsed.acoes || [];
+      DATA_LOCAL.lembretes = parsed.lembretes || [];
+      DATA_LOCAL.inspecoes = parsed.inspecoes || [];
+      DATA_LOCAL.docsFornecedores = parsed.docsFornecedores || [];
+    }
+  }catch(e){ console.warn(e); }
+}
+function saveLocalData(){
+  try{
+    localStorage.setItem('carmak_ma_local', JSON.stringify(DATA_LOCAL));
+  }catch(e){ console.warn(e); }
+}
+function uid(){ return 'id_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8); }
+function todayISO(){ const d=new Date(); return d.toISOString().slice(0,10); }
+function daysDiff(a,b){
+  const da = new Date(a+'T00:00:00'), db = new Date(b+'T00:00:00');
+  return Math.round((db-da)/86400000);
+}
+function fmtDateISO(s){
+  if(!s) return '—';
+  const p = String(s).slice(0,10).split('-');
+  if(p.length!==3) return s;
+  return p[2]+'/'+p[1]+'/'+p[0];
+}
+
+/* ---- Plano de Ação ---- */
+function openAcaoById(id){
+  loadLocalData();
+  openAcaoModal(DATA_LOCAL.acoes.find(a=>a.id===id)||null);
+}
+function openAcaoModal(row){
+  loadLocalData();
+  document.getElementById('acao_id').value = row&&row.id?row.id:'';
+  document.getElementById('acao_criacao').value = row?row.criacao||todayISO():todayISO();
+  document.getElementById('acao_filial').value = row?row.filial||'':'';
+  document.getElementById('acao_desc').value = row?row.descricao||'':'';
+  document.getElementById('acao_resp').value = row?row.responsavel||'':'';
+  document.getElementById('acao_prev').value = row?row.previsao||'':'';
+  document.getElementById('acao_micros').value = row&&row.micros?row.micros.map(m=>m.text).join('\n'):'';
+  document.getElementById('modal-acao-title').textContent = row&&row.id?'Editar ação':'Nova ação';
+  document.getElementById('modal-acao').classList.add('on');
+}
+function closeAcaoModal(){ document.getElementById('modal-acao').classList.remove('on'); }
+function saveAcao(){
+  const desc = (document.getElementById('acao_desc').value||'').trim();
+  const filial = (document.getElementById('acao_filial').value||'').trim();
+  const resp = (document.getElementById('acao_resp').value||'').trim();
+  const prev = document.getElementById('acao_prev').value;
+  const criacao = document.getElementById('acao_criacao').value || todayISO();
+  if(!desc||!filial||!resp||!prev){ alert('Preencha os campos obrigatórios.'); return; }
+  const microsText = document.getElementById('acao_micros').value||'';
+  const microLines = microsText.split('\n').map(s=>s.trim()).filter(Boolean);
+  const id = document.getElementById('acao_id').value || uid();
+  loadLocalData();
+  const existing = DATA_LOCAL.acoes.find(a=>a.id===id);
+  const oldMicros = existing ? existing.micros||[] : [];
+  const micros = microLines.map((text,i)=>{
+    const prevM = oldMicros.find(m=>m.text===text) || oldMicros[i];
+    return { id: (prevM&&prevM.id)||uid(), text, done: !!(prevM&&prevM.done) };
+  });
+  const row = { id, criacao, filial, descricao:desc, responsavel:resp, previsao:prev, micros, concluida:null };
+  const idx = DATA_LOCAL.acoes.findIndex(a=>a.id===id);
+  if(idx>=0) DATA_LOCAL.acoes[idx]=row; else DATA_LOCAL.acoes.unshift(row);
+  saveLocalData();
+  closeAcaoModal();
+  renderPlanoAcao();
+}
+function toggleMicro(acaoId, microId){
+  loadLocalData();
+  const a = DATA_LOCAL.acoes.find(x=>x.id===acaoId);
+  if(!a) return;
+  const m = (a.micros||[]).find(x=>x.id===microId);
+  if(!m) return;
+  m.done = !m.done;
+  if(a.micros.length && a.micros.every(x=>x.done)) a.concluida = todayISO();
+  else a.concluida = null;
+  saveLocalData();
+  renderPlanoAcao();
+}
+function deleteAcao(id){
+  if(!confirm('Excluir esta ação?')) return;
+  loadLocalData();
+  DATA_LOCAL.acoes = DATA_LOCAL.acoes.filter(a=>a.id!==id);
+  saveLocalData();
+  renderPlanoAcao();
+}
+function acaoProgress(a){
+  const ms = a.micros||[];
+  if(!ms.length) return a.concluida ? 100 : 0;
+  return Math.round(100 * ms.filter(m=>m.done).length / ms.length);
+}
+function acaoTiming(a){
+  const today = todayISO();
+  const prog = acaoProgress(a);
+  if(prog>=100){
+    const end = a.concluida || today;
+    const d = daysDiff(a.previsao, end);
+    if(d>0) return {cls:'late', txt:'Concluída com '+d+' dia(s) de atraso'};
+    if(d<0) return {cls:'early', txt:'Concluída '+Math.abs(d)+' dia(s) antes'};
+    return {cls:'early', txt:'Concluída no prazo'};
+  }
+  const d = daysDiff(today, a.previsao);
+  if(d<0) return {cls:'late', txt:Math.abs(d)+' dia(s) de atraso'};
+  if(d===0) return {cls:'ontrack', txt:'Vence hoje'};
+  return {cls:'ontrack', txt:d+' dia(s) restantes'};
+}
+function renderPlanoAcao(){
+  loadLocalData();
+  let list = DATA_LOCAL.acoes.slice();
+  if(selectedUnit) list = list.filter(a=>a.filial===selectedUnit);
+  const total = list.length;
+  const concl = list.filter(a=>acaoProgress(a)>=100).length;
+  const atras = list.filter(a=>acaoTiming(a).cls==='late' && acaoProgress(a)<100).length;
+  const pctMed = total ? Math.round(list.reduce((s,a)=>s+acaoProgress(a),0)/total) : 0;
+  document.getElementById('kpi-planoacao').innerHTML = `
+    <div class="kpi gold-edge"><div class="lbl">Ações</div><div class="val">${total}</div><div class="sub">no escopo atual</div></div>
+    <div class="kpi ok-edge"><div class="lbl">Concluídas</div><div class="val">${concl}</div><div class="sub">${total?Math.round(100*concl/total):0}% do total</div></div>
+    <div class="kpi ${atras?'crit-edge':'ok-edge'}"><div class="lbl">Em atraso</div><div class="val">${atras}</div><div class="sub">prazos vencidos</div></div>
+    <div class="kpi feat"><div class="lbl">Progresso médio</div><div class="val">${pctMed}%</div><div class="sub">microações concluídas</div></div>`;
+  const root = document.getElementById('planoacao-list');
+  if(!list.length){
+    root.innerHTML = '<div class="empty-state">Nenhuma ação cadastrada. Clique em “+ Nova ação”.</div>';
+    return;
+  }
+  root.innerHTML = list.map(a=>{
+    const prog = acaoProgress(a);
+    const tim = acaoTiming(a);
+    const micros = (a.micros||[]).map(m=>`
+      <div class="micro">
+        <input type="checkbox" ${m.done?'checked':''} onchange="toggleMicro('${a.id}','${m.id}')">
+        <span style="${m.done?'text-decoration:line-through;opacity:.65':''}">${esc(m.text)}</span>
+      </div>`).join('') || '<div class="micro" style="color:var(--muted)">Sem microações</div>';
+    return `<div class="action-card">
+      <div class="ac-head">
+        <div class="ac-title">${esc(a.descricao)}</div>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="btn-ma ghost" style="padding:6px 10px;font-size:11px" onclick="openAcaoById('${a.id}')">Editar</button>
+          <button type="button" class="btn-ma danger" style="padding:6px 10px;font-size:11px" onclick="deleteAcao('${a.id}')">Excluir</button>
+        </div>
+      </div>
+      <div class="ac-meta">
+        <span>📅 Criada: ${fmtDateISO(a.criacao)}</span>
+        <span>🏢 ${esc(a.filial)}</span>
+        <span>👤 ${esc(a.responsavel)}</span>
+        <span>🎯 Previsão: ${fmtDateISO(a.previsao)}</span>
+        <span class="delay ${tim.cls}">${esc(tim.txt)}</span>
+      </div>
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px">${prog}% concluído</div>
+      <div class="ac-prog"><span style="width:${prog}%"></span></div>
+      ${micros}
+    </div>`;
+  }).join('');
+}
+
+/* ---- Cronograma ---- */
+function openReminderModal(){
+  document.getElementById('rem_id').value = '';
+  document.getElementById('rem_data').value = calSelectedDate || todayISO();
+  document.getElementById('rem_titulo').value = '';
+  document.getElementById('rem_desc').value = '';
+  document.getElementById('rem_unidade').value = selectedUnit || '';
+  document.getElementById('modal-rem').classList.add('on');
+}
+function closeRemModal(){ document.getElementById('modal-rem').classList.remove('on'); }
+function saveReminder(){
+  const data = document.getElementById('rem_data').value;
+  const titulo = (document.getElementById('rem_titulo').value||'').trim();
+  if(!data||!titulo){ alert('Data e título são obrigatórios.'); return; }
+  loadLocalData();
+  const row = {
+    id: document.getElementById('rem_id').value || uid(),
+    data, titulo,
+    descricao: (document.getElementById('rem_desc').value||'').trim(),
+    unidade: (document.getElementById('rem_unidade').value||'').trim()
+  };
+  const idx = DATA_LOCAL.lembretes.findIndex(x=>x.id===row.id);
+  if(idx>=0) DATA_LOCAL.lembretes[idx]=row; else DATA_LOCAL.lembretes.push(row);
+  saveLocalData();
+  closeRemModal();
+  renderCronograma();
+}
+function deleteReminder(id){
+  if(!confirm('Excluir lembrete?')) return;
+  loadLocalData();
+  DATA_LOCAL.lembretes = DATA_LOCAL.lembretes.filter(x=>x.id!==id);
+  saveLocalData();
+  renderCronograma();
+}
+function calShift(dir){
+  calCursor.setMonth(calCursor.getMonth()+dir);
+  renderCronograma();
+}
+function mtrDatesMap(){
+  const map = {};
+  (DATA.residuos||[]).forEach(r=>{
+    if(!matchUnit(r.Unidade)) return;
+    const d = r.Data ? String(r.Data).slice(0,10) : '';
+    if(!d || d.length<8) return;
+    if(!map[d]) map[d]=[];
+    map[d].push({tipo:'mtr', label:(r.MTR||'MTR')+' · '+(r.Resíduo||'')+' · '+(r.Unidade||''), peso:r['Peso (ton)']});
+  });
+  loadLocalData();
+  (DATA_LOCAL.lembretes||[]).forEach(r=>{
+    if(selectedUnit && r.unidade && r.unidade!==selectedUnit) return;
+    if(!map[r.data]) map[r.data]=[];
+    map[r.data].push({tipo:'rem', id:r.id, label:r.titulo, desc:r.descricao});
+  });
+  (DATA_LOCAL.acoes||[]).forEach(a=>{
+    if(selectedUnit && a.filial!==selectedUnit) return;
+    if(a.previsao){
+      if(!map[a.previsao]) map[a.previsao]=[];
+      map[a.previsao].push({tipo:'act', label:'Prazo: '+a.descricao, resp:a.responsavel});
+    }
+  });
+  return map;
+}
+function renderCronograma(){
+  loadLocalData();
+  const y = calCursor.getFullYear(), m = calCursor.getMonth();
+  const monthNames = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  document.getElementById('cal-title').textContent = monthNames[m]+' '+y;
+  const first = new Date(y,m,1);
+  const startDow = (first.getDay()+6)%7; // Mon=0
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const map = mtrDatesMap();
+  const today = todayISO();
+  let html = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map(d=>`<div class="cal-dow">${d}</div>`).join('');
+  for(let i=0;i<startDow;i++) html += `<div class="cal-day other"></div>`;
+  for(let d=1;d<=daysInMonth;d++){
+    const iso = `${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const items = map[iso]||[];
+    const dots = items.slice(0,6).map(it=>{
+      if(it.tipo==='mtr') return '<i class="dot-mtr"></i>';
+      if(it.tipo==='rem') return '<i class="dot-rem"></i>';
+      return '<i class="dot-act"></i>';
+    }).join('');
+    const isToday = iso===today;
+    const sel = calSelectedDate===iso;
+    html += `<div class="cal-day ${isToday?'today':''}" style="${sel?'background:var(--gold-soft)':''}" onclick="selectCalDay('${iso}')">
+      <div class="dn">${d}</div><div class="dots">${dots}</div>
+    </div>`;
+  }
+  document.getElementById('cal-grid').innerHTML = html;
+  if(calSelectedDate) fillCalDayDetail(calSelectedDate);
+  else {
+    document.getElementById('cal-day-label').textContent = 'Clique em um dia';
+    document.getElementById('cal-day-detail').innerHTML = '';
+  }
+}
+function fillCalDayDetail(iso){
+  document.getElementById('cal-day-label').textContent = fmtDateISO(iso);
+  const map = mtrDatesMap();
+  const items = map[iso]||[];
+  if(!items.length){
+    document.getElementById('cal-day-detail').innerHTML = '<div class="empty-state" style="padding:12px">Sem eventos neste dia.</div>';
+  } else {
+    document.getElementById('cal-day-detail').innerHTML = items.map(it=>{
+      if(it.tipo==='mtr') return `<div class="rem-item"><b>♻ MTR</b>${esc(it.label)}</div>`;
+      if(it.tipo==='rem') return `<div class="rem-item"><b>🔔 ${esc(it.label)}</b>${esc(it.desc||'')}
+        <button type="button" class="btn-ma danger" style="margin-top:6px;padding:4px 8px;font-size:11px" onclick="deleteReminder('${it.id}')">Excluir</button></div>`;
+      return `<div class="rem-item"><b>🎯 Ação</b>${esc(it.label)}${it.resp?' · '+esc(it.resp):''}</div>`;
+    }).join('');
+  }
+}
+function selectCalDay(iso){
+  calSelectedDate = iso;
+  renderCronograma();
+}
+
+/* ---- Inspeções Técnicas ---- */
+let inspDraft = null;
+function openInspecaoById(id){
+  loadLocalData();
+  const row = DATA_LOCAL.inspecoes.find(x=>x.id===id);
+  if(row) openInspecaoEditor(row);
+}
+function openInspecaoEditor(row){
+  loadLocalData();
+  inspDraft = row ? JSON.parse(JSON.stringify(row)) : {
+    id: uid(),
+    filial: selectedUnit||'',
+    endereco:'', cnpj:'', responsavel:'',
+    objetivo:'Inspeção técnica – Adequações referente ao aspecto ambiental e de qualidade',
+    servico:'',
+    fotos:[],
+    adequacoes:[],
+    conclusao:'',
+    data: todayISO()
+  };
+  document.getElementById('inspecao-editor').style.display = 'block';
+  document.getElementById('insp-editor-title').textContent = row ? 'Editar inspeção' : 'Nova inspeção técnica';
+  renderInspForm();
+  document.getElementById('inspecao-editor').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function renderInspForm(){
+  const d = inspDraft;
+  if(!d) return;
+  const fotosHtml = (d.fotos||[]).map((f,i)=>`
+    <div class="photo-card">
+      <button type="button" class="pc-del" onclick="removeInspPhoto(${i})">×</button>
+      <img src="${f.dataUrl}" alt="">
+      <div class="pc-body">
+        <label style="font-size:10px;font-weight:700;color:var(--muted)">Descrição / legenda</label>
+        <input value="${esc(f.legenda||'')}" onchange="inspDraft.fotos[${i}].legenda=this.value" placeholder="Figura ${i+1}: ...">
+      </div>
+    </div>`).join('');
+  document.getElementById('insp-form').innerHTML = `
+    <div class="grid2m">
+      <div class="mf"><label>Filial / Nome *</label><input id="insp_filial" list="dl-unidades" value="${esc(d.filial)}"></div>
+      <div class="mf"><label>CNPJ</label><input id="insp_cnpj" value="${esc(d.cnpj||'')}"></div>
+    </div>
+    <div class="mf"><label>Endereço</label><input id="insp_endereco" value="${esc(d.endereco||'')}"></div>
+    <div class="grid2m">
+      <div class="mf"><label>Responsável</label><input id="insp_resp" value="${esc(d.responsavel||'')}"></div>
+      <div class="mf"><label>Data da inspeção</label><input type="date" id="insp_data" value="${esc(d.data||todayISO())}"></div>
+    </div>
+    <div class="section-label">Dados Gerais</div>
+    <div class="mf"><label>Objetivo</label><textarea id="insp_objetivo">${esc(d.objetivo||'')}</textarea></div>
+    <div class="mf"><label>Serviço realizado</label><textarea id="insp_servico">${esc(d.servico||'')}</textarea></div>
+    <div class="section-label">Fotos do relatório</div>
+    <div class="upload-zone" onclick="document.getElementById('insp_file').click()">
+      <input type="file" id="insp_file" accept="image/*" multiple onchange="handleInspFiles(event)">
+      <div style="font-weight:700;color:var(--navy)">Clique ou arraste fotos</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px">JPG, PNG · várias imagens</div>
+    </div>
+    <div class="photo-grid">${fotosHtml || '<div class="empty-state" style="padding:16px;grid-column:1/-1">Nenhuma foto adicionada</div>'}</div>
+    <div class="section-label">Adequações identificadas</div>
+    <div class="mf"><label>Lista de adequações (uma por linha: Figura X — descrição)</label>
+      <textarea id="insp_adequacoes" style="min-height:100px">${esc((d.adequacoes||[]).join('\\n'))}</textarea>
+    </div>
+    <div class="mf"><label>Conclusão</label><textarea id="insp_conclusao">${esc(d.conclusao||'')}</textarea></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
+      <button type="button" class="btn-ma primary" onclick="saveInspecao()">Salvar inspeção</button>
+      <button type="button" class="btn-ma gold" onclick="printInspecao()">Gerar relatório (PDF / impressão)</button>
+      <button type="button" class="btn-ma ghost" onclick="cancelInspecaoEditor()">Cancelar</button>
+    </div>`;
+}
+function handleInspFiles(ev){
+  const files = [...(ev.target.files||[])];
+  if(!files.length||!inspDraft) return;
+  let pending = files.length;
+  files.forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      inspDraft.fotos.push({ dataUrl: reader.result, legenda: file.name.replace(/\.[^.]+$/,'') });
+      pending--;
+      if(pending<=0) renderInspForm();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function removeInspPhoto(i){
+  if(!inspDraft) return;
+  inspDraft.fotos.splice(i,1);
+  renderInspForm();
+}
+function cancelInspecaoEditor(){
+  inspDraft = null;
+  document.getElementById('inspecao-editor').style.display = 'none';
+}
+function collectInspForm(){
+  if(!inspDraft) return null;
+  inspDraft.filial = (document.getElementById('insp_filial').value||'').trim();
+  inspDraft.cnpj = (document.getElementById('insp_cnpj').value||'').trim();
+  inspDraft.endereco = (document.getElementById('insp_endereco').value||'').trim();
+  inspDraft.responsavel = (document.getElementById('insp_resp').value||'').trim();
+  inspDraft.data = document.getElementById('insp_data').value || todayISO();
+  inspDraft.objetivo = document.getElementById('insp_objetivo').value||'';
+  inspDraft.servico = document.getElementById('insp_servico').value||'';
+  inspDraft.conclusao = document.getElementById('insp_conclusao').value||'';
+  inspDraft.adequacoes = (document.getElementById('insp_adequacoes').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  return inspDraft;
+}
+function saveInspecao(){
+  const d = collectInspForm();
+  if(!d||!d.filial){ alert('Informe a filial.'); return; }
+  loadLocalData();
+  const idx = DATA_LOCAL.inspecoes.findIndex(x=>x.id===d.id);
+  if(idx>=0) DATA_LOCAL.inspecoes[idx]=d; else DATA_LOCAL.inspecoes.unshift(d);
+  saveLocalData();
+  cancelInspecaoEditor();
+  renderInspecoes();
+  alert('Inspeção salva.');
+}
+function deleteInspecao(id){
+  if(!confirm('Excluir esta inspeção?')) return;
+  loadLocalData();
+  DATA_LOCAL.inspecoes = DATA_LOCAL.inspecoes.filter(x=>x.id!==id);
+  saveLocalData();
+  renderInspecoes();
+}
+function renderInspecoes(){
+  loadLocalData();
+  let list = DATA_LOCAL.inspecoes.slice();
+  if(selectedUnit) list = list.filter(x=>x.filial===selectedUnit);
+  const root = document.getElementById('inspecoes-list');
+  if(!list.length){
+    root.innerHTML = '<div class="empty-state">Nenhuma inspeção cadastrada. Clique em “+ Nova inspeção”.</div>';
+    return;
+  }
+  root.innerHTML = list.map(x=>`
+    <div class="insp-list-item">
+      <div>
+        <div style="font-weight:700;color:var(--navy)">${esc(x.filial)} · ${fmtDateISO(x.data)}</div>
+        <div style="font-size:12px;color:var(--muted)">${esc((x.objetivo||'').slice(0,120))}${(x.objetivo||'').length>120?'…':''}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${(x.fotos||[]).length} foto(s) · ${(x.adequacoes||[]).length} adequação(ões)</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button type="button" class="btn-ma ghost" style="padding:6px 10px;font-size:11px" onclick="openInspecaoById('${x.id}')">Abrir</button>
+        <button type="button" class="btn-ma danger" style="padding:6px 10px;font-size:11px" onclick="deleteInspecao('${x.id}')">Excluir</button>
+      </div>
+    </div>`).join('');
+}
+function printInspecao(){
+  const d = collectInspForm() || inspDraft;
+  if(!d){ alert('Abra ou crie uma inspeção primeiro.'); return; }
+  const fotos = (d.fotos||[]).map((f,i)=>`
+    <div style="display:inline-block;width:48%;vertical-align:top;margin:1%;text-align:center">
+      <img src="${f.dataUrl}" style="max-width:100%;max-height:220px;object-fit:contain;border:1px solid #ddd">
+      <div style="font-size:11px;margin-top:4px">Figura ${i+1}: ${esc(f.legenda||'')}</div>
+    </div>`).join('');
+  const adeqRows = (d.adequacoes||[]).map(line=>{
+    const parts = line.split(/—|–|-/).map(s=>s.trim());
+    const fig = parts[0]||line;
+    const desc = parts.slice(1).join(' — ')||'';
+    return `<tr><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(fig)}</td><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(desc||line)}</td></tr>`;
+  }).join('');
+  const htmlDoc = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório Técnico Fotográfico — ${esc(d.filial)}</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:24px;font-size:12px}
+    .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #C9A227;padding-bottom:10px;margin-bottom:16px}
+    .brand{font-weight:800;font-size:18px;color:#0B2E1F}
+    h1{background:#B91C1C;color:#fff;text-align:center;padding:10px;font-size:16px;margin:0 0 14px}
+    table.meta{width:100%;border-collapse:collapse;margin-bottom:14px}
+    table.meta th{background:#B91C1C;color:#fff;text-align:left;padding:6px 8px;font-size:11px}
+    table.meta td{border:1px solid #ccc;padding:6px 8px}
+    h2{background:#B91C1C;color:#fff;padding:6px 10px;font-size:13px;margin:16px 0 8px}
+    .concl{line-height:1.5;margin-top:8px}
+    .foot{margin-top:28px;text-align:center;font-size:11px;color:#555}
+    @media print{body{margin:12px}}
+  </style></head><body>
+  <div class="hdr"><div class="brand">Meio Ambiente · Carmak</div><div style="font-size:11px;color:#555">Relatório Técnico Fotográfico</div></div>
+  <h1>RELATÓRIO TÉCNICO FOTOGRÁFICO</h1>
+  <table class="meta">
+    <tr><th colspan="2">FILIAL</th></tr>
+    <tr><td><b>Nome</b><br>${esc(d.filial)}</td><td><b>CNPJ</b><br>${esc(d.cnpj||'—')}</td></tr>
+    <tr><td><b>Endereço</b><br>${esc(d.endereco||'—')}</td><td><b>Responsável</b><br>${esc(d.responsavel||'—')}</td></tr>
+  </table>
+  <h2>DADOS GERAIS</h2>
+  <table class="meta">
+    <tr><td><b>Objetivo</b><br>${esc(d.objetivo||'—')}</td></tr>
+    <tr><td><b>Serviço realizado</b><br>${esc(d.servico||'—')}</td></tr>
+  </table>
+  <h2>FOTOS RELATÓRIO</h2>
+  <div>${fotos || '<p>Sem fotos.</p>'}</div>
+  <h2>ADEQUAÇÕES IDENTIFICADAS</h2>
+  <table class="meta" style="width:100%">
+    <tr><th style="width:30%">Figuras</th><th>Descrição</th></tr>
+    ${adeqRows || '<tr><td colspan="2" style="padding:8px">Nenhuma adequação registrada.</td></tr>'}
+  </table>
+  <h2>CONCLUSÃO</h2>
+  <div class="concl">${esc(d.conclusao||'—')}</div>
+  <div class="foot">
+    <p>${esc(d.filial)}, ${fmtDateISO(d.data)}</p>
+    <p style="margin-top:24px">_________________________________<br>Analista de Meio Ambiente</p>
+  </div>
+  <script>setTimeout(function(){window.print()},400)<\\/script>
+  </body></html>`;
+  const w = window.open('','_blank','noopener,noreferrer');
+  if(!w){ alert('Permita pop-ups para gerar o relatório.'); return; }
+  w.document.write(htmlDoc);
+  w.document.close();
+}
+
+// load local data at boot
+loadLocalData();
+
 /* Boot — Supabase Auth */
 const SUPABASE_URL = 'https://rnxqogklpdlnupgttlcu.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJueHFvZ2tscGRsbnVwZ3R0bGN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg4ODE2ODIsImV4cCI6MjEwNDQ1NzY4Mn0.pU6C01F69Ctmi-g5fcAK2LUJmOnQefxZZeCDL4Fag24';
@@ -4031,13 +4831,15 @@ document.addEventListener('click', e=>{
 document.getElementById('modal-lic')?.addEventListener('click', e=>{
   if(e.target && e.target.id === 'modal-lic') closeLicModal();
 });
-['modal-res','modal-rec','modal-ef','modal-sc'].forEach(id=>{
+['modal-res','modal-rec','modal-ef','modal-sc','modal-acao','modal-rem'].forEach(id=>{
   document.getElementById(id)?.addEventListener('click', e=>{
     if(e.target && e.target.id === id){
       if(id==='modal-res') closeResModal();
       if(id==='modal-rec') closeRecModal();
       if(id==='modal-ef') closeEfModal();
       if(id==='modal-sc') closeScModal();
+      if(id==='modal-acao') closeAcaoModal();
+      if(id==='modal-rem') closeRemModal();
     }
   });
 });
