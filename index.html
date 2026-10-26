@@ -3210,6 +3210,7 @@ function renderLicencas(){
       <td class="tbl-actions">
         <button type="button" data-lic-ed="${idAttr}">Editar</button>
         <button type="button" class="del" data-lic-del="${idAttr}">Excluir</button>
+        <button type="button" data-lic-doc="${idAttr}" title="Baixar documento" aria-label="Baixar documento" ${!(r.doc_path||r.doc_url)?'disabled style="opacity:.4;cursor:not-allowed"':''}>↓</button>
       </td>
     </tr>`;
   }).join('')||'<tr><td colspan="9" class="empty-state">Sem licenças no filtro</td></tr>';
@@ -4026,6 +4027,8 @@ async function refreshLicencasAndRender(){
   const chip = document.getElementById('lic-sync-chip');
   if(chip) chip.textContent = 'Sincronizando…';
   const res = await loadLicencasFromCloud();
+  await loadLicencasAnexos();
+  (DATA.docs||[]).forEach(r=>applyAnexoToRow(r,'carmak'));
   if(selectedModule === 'licencas' && screen === 'data'){
     try{
       renderFilters();
@@ -5238,12 +5241,21 @@ function renderInspecoes(){
       </div>
       <div style="display:flex;gap:6px;flex-shrink:0">
         <button type="button" class="btn-ma ghost" style="padding:6px 10px;font-size:11px" onclick="openInspecaoById('${x.id}')">Abrir</button>
+        <button type="button" class="btn-ma gold" style="padding:6px 10px;font-size:11px" title="Baixar relatório" onclick="downloadInspecaoById('${x.id}')">↓ Relatório</button>
         <button type="button" class="btn-ma danger" style="padding:6px 10px;font-size:11px" onclick="deleteInspecao('${x.id}')">Excluir</button>
       </div>
     </div>`).join('');
 }
+function downloadInspecaoById(id){
+  loadLocalData();
+  const row = (DATA_LOCAL.inspecoes||[]).find(x=>x.id===id);
+  if(!row){ alert('Inspeção não encontrada.'); return; }
+  inspDraft = JSON.parse(JSON.stringify(row));
+  printInspecao();
+}
 function printInspecao(){
-  const d = collectInspForm() || inspDraft;
+  const editorOpen = document.getElementById('inspecao-editor') && document.getElementById('inspecao-editor').style.display !== 'none' && document.getElementById('insp_filial');
+  const d = editorOpen ? (collectInspForm() || inspDraft) : inspDraft;
   if(!d){ alert('Abra ou crie uma inspeção primeiro.'); return; }
   const fotos = (d.fotos||[]).map((f,i)=>`
     <div style="display:inline-block;width:48%;vertical-align:top;margin:1%;text-align:center">
