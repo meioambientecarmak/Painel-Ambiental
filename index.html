@@ -5315,30 +5315,34 @@ function buildInspecaoReportElement(d){
   wrap.className = 'insp-pdf-root';
   wrap.setAttribute('style',
     'width:700px;max-width:700px;margin:0 auto;box-sizing:border-box;padding:8px 0 12px;'+
-    'background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;'+
+    'background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;'+
     'overflow:visible;position:relative;'
   );
 
   const fotos = d.fotos || [];
   let fotosHtml = '';
   if(!fotos.length){
-    fotosHtml = '<p style="color:#555;margin:8px 0">Sem fotos anexadas.</p>';
+    fotosHtml = '<p style="color:#555;margin:8px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px">Sem fotos anexadas.</p>';
   } else {
     const blocks = [];
     for(let i=0;i<fotos.length;i+=2){
       const cell = (f, idx)=>{
-        if(!f) return '<div style="width:48%;box-sizing:border-box"></div>';
+        if(!f) return '<div style="width:6cm;box-sizing:border-box"></div>';
         const src = f.dataUrl || '';
         const desc = (f.descricao||'').trim();
-        return `<div style="width:48%;box-sizing:border-box;text-align:center">
-          <div style="border:1px solid #ccc;background:#fafafa;padding:4px;box-sizing:border-box">
-            <img src="${src}" crossorigin="anonymous" style="max-width:100%;width:auto;max-height:200px;height:auto;object-fit:contain;display:block;margin:0 auto"/>
+        const nome = (f.titulo || f.legenda || '').trim();
+        // Legenda: Figura X em negrito + nome em itálico
+        const legenda = `<span style="font-style:italic"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</span>`;
+        return `<div class="insp-photo-cell" style="width:6cm;max-width:6cm;box-sizing:border-box;text-align:center;page-break-inside:avoid;break-inside:avoid">
+          <div style="width:6cm;height:8cm;box-sizing:border-box;border:1px solid #ccc;background:#fafafa;display:flex;align-items:center;justify-content:center;overflow:hidden;page-break-inside:avoid;break-inside:avoid">
+            <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block"/>
           </div>
-          <div style="margin-top:6px;font-size:11px;color:#222;font-style:italic;word-wrap:break-word;overflow-wrap:anywhere">${esc(figTitle(f, idx))}</div>
-          ${desc ? `<div style="margin-top:3px;font-size:10.5px;color:#333;text-align:left;word-wrap:break-word;overflow-wrap:anywhere"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
+          <div style="margin-top:6px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#222;text-align:center;word-wrap:break-word;overflow-wrap:anywhere;page-break-inside:avoid">${legenda}</div>
+          ${desc ? `<div style="margin-top:3px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#333;text-align:left;word-wrap:break-word;overflow-wrap:anywhere"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
         </div>`;
       };
-      blocks.push(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:0 0 18px;page-break-inside:avoid;break-inside:avoid">${cell(fotos[i], i)}${cell(fotos[i+1], i+1)}</div>`);
+      // Bloco inteiro (par de fotos) não pode partir entre páginas
+      blocks.push(`<div class="insp-photo-pair" style="display:flex;justify-content:center;align-items:flex-start;gap:1.2cm;margin:0 0 16px;page-break-inside:avoid;break-inside:avoid;-webkit-column-break-inside:avoid">${cell(fotos[i], i)}${cell(fotos[i+1], i+1)}</div>`);
     }
     fotosHtml = blocks.join('');
   }
@@ -5347,8 +5351,8 @@ function buildInspecaoReportElement(d){
     const fig = figTitle(f, i);
     const desc = (f.descricao||'').trim() || '—';
     return `<tr>
-      <td style="border:1px solid #999;padding:8px;font-size:11px;width:34%;vertical-align:top;word-wrap:break-word">${esc(fig)}</td>
-      <td style="border:1px solid #999;padding:8px;font-size:11px;vertical-align:top;word-wrap:break-word">${esc(desc)}</td>
+      <td style="border:1px solid #999;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;width:34%;vertical-align:top;word-wrap:break-word">${esc(fig)}</td>
+      <td style="border:1px solid #999;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;vertical-align:top;word-wrap:break-word">${esc(desc)}</td>
     </tr>`;
   }).join('');
   const adeqExtra = (d.adequacoes||[]).map(line=>{
@@ -5356,8 +5360,8 @@ function buildInspecaoReportElement(d){
     const fig = parts[0]||line;
     const desc = parts.slice(1).join(' — ')||'';
     return `<tr>
-      <td style="border:1px solid #999;padding:8px;font-size:11px;width:34%;vertical-align:top;word-wrap:break-word">${esc(fig)}</td>
-      <td style="border:1px solid #999;padding:8px;font-size:11px;vertical-align:top;word-wrap:break-word">${esc(desc||line)}</td>
+      <td style="border:1px solid #999;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;width:34%;vertical-align:top;word-wrap:break-word">${esc(fig)}</td>
+      <td style="border:1px solid #999;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;vertical-align:top;word-wrap:break-word">${esc(desc||line)}</td>
     </tr>`;
   }).join('');
   const adeqRows = (adeqFromFotos + adeqExtra) ||
@@ -5426,8 +5430,8 @@ function buildInspecaoReportElement(d){
       <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px">ADEQUAÇÕES IDENTIFICADAS</div>
       <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
         <tr>
-          <th style="background:#EB0A1E;color:#fff;text-align:left;padding:7px 10px;font-size:11px;width:34%;border:1px solid #b00000">Figuras</th>
-          <th style="background:#EB0A1E;color:#fff;text-align:left;padding:7px 10px;font-size:11px;border:1px solid #b00000">Descrição</th>
+          <th style="background:#EB0A1E;color:#fff;text-align:left;padding:7px 10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;width:34%;border:1px solid #b00000">Figuras</th>
+          <th style="background:#EB0A1E;color:#fff;text-align:left;padding:7px 10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;border:1px solid #b00000">Descrição</th>
         </tr>
         ${adeqRows}
       </table>
@@ -5519,7 +5523,10 @@ async function printInspecao(){
         windowHeight: shell.scrollHeight
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
+      pagebreak: {
+        mode: ['avoid-all', 'css', 'legacy'],
+        avoid: ['.insp-photo-pair', '.insp-photo-cell', 'tr', 'img']
+      }
     };
 
     const worker = html2pdf().set(opt).from(shell);
