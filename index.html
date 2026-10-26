@@ -800,7 +800,7 @@ body.on-guia{
 }
 .photo-card .pc-fig-label .pc-num{
   background:linear-gradient(135deg,var(--navy),var(--teal));color:#fff;
-  padding:2px 8px;border-radius:6px;font-size:11px;letter-spacing:.02em;
+  padding:2px 8px;border-radius:6px;font-size:11px;
 }
 .photo-card .pc-field{margin-top:6px}
 .photo-card .pc-field label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px}
@@ -5144,13 +5144,13 @@ function renderInspForm(){
         <div class="pc-fig-label">
           <span class="pc-num">Figura ${i+1}</span>
           <span class="pc-move">
-            <button type="button" title="Mover para cima" ${i===0?'disabled':''} onclick="moveInspPhoto(${i},-1)">↑</button>
-            <button type="button" title="Mover para baixo" ${i>=nFotos-1?'disabled':''} onclick="moveInspPhoto(${i},1)">↓</button>
+            <button type="button" title="Subir" ${i===0?'disabled':''} onclick="moveInspPhoto(${i},-1)">↑</button>
+            <button type="button" title="Descer" ${i>=nFotos-1?'disabled':''} onclick="moveInspPhoto(${i},1)">↓</button>
           </span>
         </div>
         <div class="pc-field">
           <label>Figura ${i+1} — nome</label>
-          <input value="${esc(f.titulo||'')}" oninput="inspDraft.fotos[${i}].titulo=this.value" placeholder="Ex.: Área de armazenamento de óleos">
+          <input value="${esc(f.titulo||'')}" oninput="inspDraft.fotos[${i}].titulo=this.value" placeholder="Ex.: Área interna - Entrada">
         </div>
         <div class="pc-field">
           <label>Descrição</label>
@@ -5179,7 +5179,7 @@ function renderInspForm(){
     </div>
     <div class="photo-grid">${fotosHtml || '<div class="empty-state" style="padding:16px;grid-column:1/-1">Nenhuma foto adicionada</div>'}</div>
     <div class="section-label">Adequações identificadas</div>
-    <p class="panel-sub" style="margin-top:-6px">No relatório, cada foto gera automaticamente <b>Figura N — nome</b> e <b>Descrição</b>. Complemente abaixo se precisar de itens extras.</p>
+    <p class="panel-sub" style="margin-top:-6px">No relatório, cada foto gera <b>Figura N — nome</b> e <b>Descrição</b>. Use o campo abaixo só para itens extras.</p>
     <div class="mf"><label>Itens extras (opcional · uma por linha)</label>
       <textarea id="insp_adequacoes" style="min-height:100px">${esc((d.adequacoes||[]).join('\\n'))}</textarea>
     </div>
@@ -5306,160 +5306,240 @@ function downloadInspecaoById(id){
   inspDraft = JSON.parse(JSON.stringify(row));
   printInspecao();
 }
-function buildInspecaoReportHtml(d){
+function figTitle(f, i){
+  const t = (f && (f.titulo || f.legenda)) ? String(f.titulo || f.legenda).trim() : '';
+  return t ? ('Figura '+(i+1)+': '+t) : ('Figura '+(i+1));
+}
+function buildInspecaoReportElement(d){
   normalizeInspFotos(d);
-  const fotos = (d.fotos||[]).map((f,i)=>`
-    <div style="display:inline-block;width:48%;vertical-align:top;margin:1%;page-break-inside:avoid;text-align:left;box-sizing:border-box">
-      <img src="${f.dataUrl||''}" style="max-width:100%;max-height:220px;object-fit:contain;border:1px solid #ddd;display:block;margin:0 auto">
-      <div style="font-size:12px;margin-top:6px;font-weight:700;color:#0B2E1F">Figura ${i+1} — ${esc(f.titulo||'')}</div>
-      <div style="font-size:11px;margin-top:2px;color:#333"><b>Descrição:</b> ${esc(f.descricao||'—')}</div>
-    </div>`).join('');
-  const adeqFromFotos = (d.fotos||[]).map((f,i)=>{
-    const fig = 'Figura '+(i+1) + (f.titulo ? ' — '+f.titulo : '');
-    const desc = f.descricao || '';
-    return `<tr><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(fig)}</td><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(desc||'—')}</td></tr>`;
+  const wrap = document.createElement('div');
+  wrap.className = 'insp-pdf-root';
+  wrap.setAttribute('style',
+    'width:794px;max-width:794px;box-sizing:border-box;padding:28px 32px 40px;'+
+    'background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.35;'
+  );
+
+  const fotos = d.fotos || [];
+  let fotosHtml = '';
+  if(!fotos.length){
+    fotosHtml = '<p style="color:#555;margin:8px 0">Sem fotos anexadas.</p>';
+  } else {
+    for(let i=0;i<fotos.length;i+=2){
+      const a = fotos[i];
+      const b = fotos[i+1];
+      const cell = (f, idx)=>{
+        if(!f) return '<div style="width:48%"></div>';
+        const src = f.dataUrl || '';
+        return `<div style="width:48%;text-align:center;page-break-inside:avoid">
+          <img src="${src}" crossorigin="anonymous" style="width:100%;max-height:240px;height:auto;object-fit:contain;border:1px solid #ccc;background:#f7f7f7;display:block"/>
+          <div style="margin-top:6px;font-size:11px;color:#222;font-style:italic">${esc(figTitle(f, idx))}</div>
+          ${f.descricao ? `<div style="margin-top:2px;font-size:10.5px;color:#333;font-style:normal;text-align:left"><b>Descrição:</b> ${esc(f.descricao)}</div>` : ''}
+        </div>`;
+      };
+      fotosHtml += `<div style="display:flex;justify-content:space-between;gap:16px;margin:12px 0 18px;page-break-inside:avoid">${cell(a,i)}${cell(b,i+1)}</div>`;
+    }
+  }
+
+  const adeqFromFotos = fotos.map((f,i)=>{
+    const fig = figTitle(f, i);
+    const desc = (f.descricao||'').trim() || '—';
+    return `<tr>
+      <td style="border:1px solid #999;padding:8px;font-size:11px;width:32%;vertical-align:top">${esc(fig)}</td>
+      <td style="border:1px solid #999;padding:8px;font-size:11px;vertical-align:top">${esc(desc)}</td>
+    </tr>`;
   }).join('');
   const adeqExtra = (d.adequacoes||[]).map(line=>{
     const parts = String(line).split(/—|–/).map(s=>s.trim());
     const fig = parts[0]||line;
     const desc = parts.slice(1).join(' — ')||'';
-    return `<tr><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(fig)}</td><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(desc||line)}</td></tr>`;
+    return `<tr>
+      <td style="border:1px solid #999;padding:8px;font-size:11px;width:32%;vertical-align:top">${esc(fig)}</td>
+      <td style="border:1px solid #999;padding:8px;font-size:11px;vertical-align:top">${esc(desc||line)}</td>
+    </tr>`;
   }).join('');
-  const adeqRows = adeqFromFotos + adeqExtra;
-  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório Técnico Fotográfico — ${esc(d.filial)}</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:24px;font-size:12px;background:#fff}
-    .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #C9A227;padding-bottom:10px;margin-bottom:16px}
-    .brand{font-weight:800;font-size:18px;color:#0B2E1F}
-    h1{background:#B91C1C;color:#fff;text-align:center;padding:10px;font-size:16px;margin:0 0 14px}
-    table.meta{width:100%;border-collapse:collapse;margin-bottom:14px}
-    table.meta th{background:#B91C1C;color:#fff;text-align:left;padding:6px 8px;font-size:11px}
-    table.meta td{border:1px solid #ccc;padding:6px 8px}
-    h2{background:#B91C1C;color:#fff;padding:6px 10px;font-size:13px;margin:16px 0 8px}
-    .concl{line-height:1.5;margin-top:8px}
-    .foot{margin-top:28px;text-align:center;font-size:11px;color:#555}
-    @media print{body{margin:12px} .no-print{display:none!important}}
-  </style></head><body>
-  <div class="hdr"><div class="brand">Meio Ambiente · Carmak</div><div style="font-size:11px;color:#555">Relatório Técnico Fotográfico</div></div>
-  <h1>RELATÓRIO TÉCNICO FOTOGRÁFICO</h1>
-  <table class="meta">
-    <tr><th colspan="2">FILIAL</th></tr>
-    <tr><td><b>Nome</b><br>${esc(d.filial)}</td><td><b>CNPJ</b><br>${esc(d.cnpj||'—')}</td></tr>
-    <tr><td><b>Endereço</b><br>${esc(d.endereco||'—')}</td><td><b>Responsável</b><br>${esc(d.responsavel||'—')}</td></tr>
-  </table>
-  <h2>DADOS GERAIS</h2>
-  <table class="meta">
-    <tr><td><b>Objetivo</b><br>${esc(d.objetivo||'—')}</td></tr>
-    <tr><td><b>Serviço realizado</b><br>${esc(d.servico||'—')}</td></tr>
-  </table>
-  <h2>FOTOS RELATÓRIO</h2>
-  <div>${fotos || '<p>Sem fotos.</p>'}</div>
-  <h2>ADEQUAÇÕES IDENTIFICADAS</h2>
-  <table class="meta" style="width:100%">
-    <tr><th style="width:30%">Figuras</th><th>Descrição</th></tr>
-    ${adeqRows || '<tr><td colspan="2" style="padding:8px">Nenhuma adequação registrada.</td></tr>'}
-  </table>
-  <h2>CONCLUSÃO</h2>
-  <div class="concl">${esc(d.conclusao||'—')}</div>
-  <div class="foot">
-    <p>${esc(d.filial)}, ${fmtDateISO(d.data)}</p>
-    <p style="margin-top:24px">_________________________________<br>Analista de Meio Ambiente</p>
-  </div>
-  </body></html>`;
+  const adeqRows = adeqFromFotos + adeqExtra ||
+    `<tr><td colspan="2" style="border:1px solid #999;padding:8px;font-size:11px">Nenhuma adequação registrada.</td></tr>`;
+
+  const mesAno = (()=>{
+    try{
+      const dt = d.data ? new Date(d.data+'T12:00:00') : new Date();
+      const mes = dt.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
+      return (d.filial||'') + (d.filial?', ':'') + mes;
+    }catch(_e){ return d.filial||''; }
+  })();
+
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px">
+      <div>
+        <div style="font-weight:900;font-size:18px;color:#EB0A1E;letter-spacing:.02em">TOYOTA</div>
+        <div style="display:inline-block;background:#EB0A1E;color:#fff;font-size:10px;font-weight:800;padding:2px 8px;margin-top:2px;letter-spacing:.04em">EMPILHADEIRAS</div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#555;padding-top:4px">Relatório Técnico Fotográfico</div>
+    </div>
+
+    <div style="background:#EB0A1E;color:#fff;text-align:center;font-weight:800;font-size:15px;padding:10px 12px;margin:0 0 14px;letter-spacing:.03em">
+      RELATÓRIO TÉCNICO FOTOGRÁFICO
+    </div>
+
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px;table-layout:fixed">
+      <tr><th colspan="2" style="background:#EB0A1E;color:#fff;text-align:left;padding:7px 10px;font-size:12px">FILIAL</th></tr>
+      <tr>
+        <td style="border:1px solid #999;padding:8px 10px;vertical-align:top;width:50%">
+          <div style="font-weight:700;margin-bottom:2px">Nome</div>
+          <div>${esc(d.filial||'—')}</div>
+        </td>
+        <td style="border:1px solid #999;padding:8px 10px;vertical-align:top;width:50%">
+          <div style="font-weight:700;margin-bottom:2px">CNPJ</div>
+          <div>${esc(d.cnpj||'—')}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #999;padding:8px 10px;vertical-align:top">
+          <div style="font-weight:700;margin-bottom:2px">Endereço</div>
+          <div>${esc(d.endereco||'—')}</div>
+        </td>
+        <td style="border:1px solid #999;padding:8px 10px;vertical-align:top">
+          <div style="font-weight:700;margin-bottom:2px">Responsável</div>
+          <div>${esc(d.responsavel||'—')}</div>
+        </td>
+      </tr>
+    </table>
+
+    <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:0 0 0">DADOS GERAIS</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+      <tr>
+        <td style="border:1px solid #999;padding:8px 10px">
+          <div style="font-weight:700;margin-bottom:2px">Objetivo</div>
+          <div>${esc(d.objetivo||'—')}</div>
+        </td>
+      </tr>
+      <tr>
+        <td style="border:1px solid #999;padding:8px 10px">
+          <div style="font-weight:700;margin-bottom:2px">Serviço realizado</div>
+          <div>${esc(d.servico||'—')}</div>
+        </td>
+      </tr>
+    </table>
+
+    <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:16px 0 8px">FOTOS RELATÓRIO</div>
+    ${fotosHtml}
+
+    <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:16px 0 0;page-break-before:auto">ADEQUAÇÕES IDENTIFICADAS</div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+      <tr>
+        <th style="background:#EB0A1E;color:#fff;text-align:left;padding:7px 10px;font-size:11px;width:32%;border:1px solid #c00">Figuras</th>
+        <th style="background:#EB0A1E;color:#fff;text-align:left;padding:7px 10px;font-size:11px;border:1px solid #c00">Descrição</th>
+      </tr>
+      ${adeqRows}
+    </table>
+
+    <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:16px 0 8px">CONCLUSÃO</div>
+    <div style="border:1px solid #999;padding:12px 14px;min-height:60px;font-size:12px;line-height:1.5;white-space:pre-wrap">${esc(d.conclusao||'—')}</div>
+
+    <div style="margin-top:36px;text-align:center;font-size:12px;color:#222">
+      <div>${esc(mesAno)}</div>
+      <div style="margin-top:36px">_________________________________</div>
+      <div style="margin-top:4px;font-weight:700">Analista de Meio Ambiente</div>
+    </div>
+
+    <div style="margin-top:28px;text-align:right">
+      <div style="display:inline-block;font-weight:900;font-size:16px;color:#0B2E1F;letter-spacing:.04em">
+        CAR<span style="color:#C9A227">MAK</span>
+      </div>
+    </div>
+  `;
+  return wrap;
 }
-function printInspecao(){
-  const editorOpen = document.getElementById('inspecao-editor') && document.getElementById('inspecao-editor').style.display !== 'none' && document.getElementById('insp_filial');
+function waitImages(root, timeoutMs){
+  const imgs = [...root.querySelectorAll('img')];
+  if(!imgs.length) return Promise.resolve();
+  return Promise.race([
+    Promise.all(imgs.map(img=> new Promise(res=>{
+      if(img.complete && img.naturalWidth) return res();
+      img.onload = ()=>res();
+      img.onerror = ()=>res();
+    }))),
+    new Promise(res=>setTimeout(res, timeoutMs||4000))
+  ]);
+}
+async function printInspecao(){
+  const editorOpen = document.getElementById('inspecao-editor') &&
+    document.getElementById('inspecao-editor').style.display !== 'none' &&
+    document.getElementById('insp_filial');
   const d = editorOpen ? (collectInspForm() || inspDraft) : inspDraft;
   if(!d){ alert('Abra ou crie uma inspeção primeiro.'); return; }
-  const htmlDoc = buildInspecaoReportHtml(d);
-  const filename = 'Relatorio_Tecnico_Fotografico_' + String(d.filial||'inspecao').replace(/[^\wÀ-ÿ\-]+/g,'_').slice(0,40) + '_' + String(d.data||'').slice(0,10) + '.pdf';
+  if(!d.filial){ alert('Informe a filial antes de gerar o relatório.'); return; }
 
-  // Prefer html2pdf (sem pop-up) — gera e baixa o PDF
-  if(typeof html2pdf !== 'undefined'){
-    let host = document.getElementById('insp-print-host');
-    if(!host){
-      host = document.createElement('div');
-      host.id = 'insp-print-host';
-      document.body.appendChild(host);
+  const filename = 'Relatorio_Tecnico_Fotografico_' +
+    String(d.filial||'inspecao').replace(/[^\wÀ-ÿ\-]+/g,'_').slice(0,40) + '_' +
+    String(d.data||'').slice(0,10) + '.pdf';
+
+  // Monta o relatório em um nó real no DOM (garante conteúdo visível no PDF)
+  const existing = document.getElementById('insp-pdf-mount');
+  if(existing) existing.remove();
+  const mount = document.createElement('div');
+  mount.id = 'insp-pdf-mount';
+  mount.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:#fff;z-index:2147483646;opacity:1;pointer-events:none;overflow:visible;';
+  const report = buildInspecaoReportElement(d);
+  mount.appendChild(report);
+  document.body.appendChild(mount);
+  // força layout
+  void mount.offsetHeight;
+  await waitImages(mount, 5000);
+  await new Promise(r=>setTimeout(r, 200));
+
+  try{
+    if(typeof html2pdf === 'undefined'){
+      throw new Error('html2pdf indisponível');
     }
-    host.innerHTML = htmlDoc;
-    host.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:#fff;z-index:99999;opacity:1;pointer-events:none;';
-    const bodyEl = host.querySelector('body') || host;
-    // html2pdf from full document string: use a wrapper with the body content
-    const wrap = document.createElement('div');
-    wrap.innerHTML = htmlDoc.replace(/^[\s\S]*?<body[^>]*>/i,'').replace(/<\/body>[\s\S]*$/i,'');
-    wrap.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:#fff;padding:24px;box-sizing:border-box;z-index:99999;color:#111;font-family:Arial,Helvetica,sans-serif;font-size:12px;';
-    // inject styles
-    const style = document.createElement('style');
-    style.textContent = `
-      .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #C9A227;padding-bottom:10px;margin-bottom:16px}
-      .brand{font-weight:800;font-size:18px;color:#0B2E1F}
-      h1{background:#B91C1C;color:#fff;text-align:center;padding:10px;font-size:16px;margin:0 0 14px}
-      table.meta{width:100%;border-collapse:collapse;margin-bottom:14px}
-      table.meta th{background:#B91C1C;color:#fff;text-align:left;padding:6px 8px;font-size:11px}
-      table.meta td{border:1px solid #ccc;padding:6px 8px}
-      h2{background:#B91C1C;color:#fff;padding:6px 10px;font-size:13px;margin:16px 0 8px}
-      .concl{line-height:1.5;margin-top:8px}
-      .foot{margin-top:28px;text-align:center;font-size:11px;color:#555}
-    `;
-    wrap.prepend(style);
-    document.body.appendChild(wrap);
-    void wrap.offsetHeight;
     const opt = {
-      margin: [10, 10, 12, 10],
+      margin: [8, 8, 10, 8],
       filename,
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
+      image: { type: 'jpeg', quality: 0.92 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: mount.scrollWidth || 794,
+        windowWidth: 794,
+        scrollX: 0,
+        scrollY: 0
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['css', 'legacy'] }
     };
-    html2pdf().set(opt).from(wrap).save().then(()=>{
-      wrap.remove();
-      if(host) host.innerHTML = '';
-    }).catch(err=>{
-      console.error(err);
-      wrap.remove();
-      openInspecaoPrintFallback(htmlDoc);
-    });
-    return;
-  }
-  openInspecaoPrintFallback(htmlDoc);
-}
-function openInspecaoPrintFallback(htmlDoc){
-  // Fallback sem pop-up: iframe oculto + print (ou blob URL)
-  try{
-    let iframe = document.getElementById('insp-print-frame');
-    if(iframe) iframe.remove();
-    iframe = document.createElement('iframe');
-    iframe.id = 'insp-print-frame';
-    iframe.setAttribute('style','position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none');
-    document.body.appendChild(iframe);
-    const doc = iframe.contentDocument || iframe.contentWindow.document;
-    doc.open();
-    doc.write(htmlDoc);
-    doc.close();
+    await html2pdf().set(opt).from(report).save();
+  }catch(err){
+    console.error('[MA] PDF inspeção', err);
+    // Fallback: impressão via iframe (sem depender de pop-up de window.open vazio)
+    try{
+      let iframe = document.getElementById('insp-print-frame');
+      if(iframe) iframe.remove();
+      iframe = document.createElement('iframe');
+      iframe.id = 'insp-print-frame';
+      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0';
+      document.body.appendChild(iframe);
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.open();
+      doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+esc(filename)+'</title></head><body></body></html>');
+      doc.close();
+      doc.body.appendChild(report.cloneNode(true));
+      await waitImages(doc.body, 3000);
+      setTimeout(()=>{
+        try{ iframe.contentWindow.focus(); iframe.contentWindow.print(); }
+        catch(e2){ console.error(e2); alert('Falha ao gerar o PDF. Tente novamente.'); }
+      }, 400);
+    }catch(e2){
+      console.error(e2);
+      alert('Falha ao gerar o PDF: '+(err.message||err));
+    }
+  }finally{
     setTimeout(()=>{
-      try{
-        iframe.contentWindow.focus();
-        iframe.contentWindow.print();
-      }catch(e){
-        console.warn(e);
-        // último recurso: blob em nova aba
-        const blob = new Blob([htmlDoc], {type:'text/html;charset=utf-8'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.target = '_blank';
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(()=>URL.revokeObjectURL(url), 60000);
-      }
-    }, 500);
-  }catch(e){
-    console.error(e);
-    alert('Não foi possível gerar o relatório. Tente novamente.');
+      const m = document.getElementById('insp-pdf-mount');
+      if(m) m.remove();
+    }, 1500);
   }
 }
 
