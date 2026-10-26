@@ -5324,29 +5324,47 @@ function buildInspecaoReportElement(d){
   if(!fotos.length){
     fotosHtml = '<p style="color:#555;margin:8px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px">Sem fotos anexadas.</p>';
   } else {
-    const blocks = [];
+    const pairs = [];
     for(let i=0;i<fotos.length;i+=2){
-      const cell = (f, idx)=>{
-        if(!f) return '<div style="width:6cm;box-sizing:border-box"></div>';
-        const src = f.dataUrl || '';
-        const desc = (f.descricao||'').trim();
-        const nome = (f.titulo || f.legenda || '').trim();
-        // Legenda: Figura X em negrito + nome em itálico
-        const legenda = `<span style="font-style:italic"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</span>`;
-        return `<div class="insp-photo-cell" style="width:6cm;max-width:6cm;box-sizing:border-box;text-align:center;page-break-inside:avoid;break-inside:avoid">
-          <div style="width:6cm;height:8cm;box-sizing:border-box;border:1px solid #ccc;background:#fafafa;display:flex;align-items:center;justify-content:center;overflow:hidden;page-break-inside:avoid;break-inside:avoid">
-            <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block"/>
-          </div>
-          <div style="margin-top:6px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#222;text-align:center;word-wrap:break-word;overflow-wrap:anywhere;page-break-inside:avoid">${legenda}</div>
-          ${desc ? `<div style="margin-top:3px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#333;text-align:left;word-wrap:break-word;overflow-wrap:anywhere"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
-        </div>`;
-      };
-      // Bloco inteiro (par de fotos) não pode partir entre páginas
-      blocks.push(`<div class="insp-photo-pair" style="display:flex;justify-content:center;align-items:flex-start;gap:1.2cm;margin:0 0 16px;page-break-inside:avoid;break-inside:avoid;-webkit-column-break-inside:avoid">${cell(fotos[i], i)}${cell(fotos[i+1], i+1)}</div>`);
+      pairs.push([fotos[i], fotos[i+1], i]);
     }
+    // Cada par = bloco com altura controlada; quebra de página ANTES do par
+    // quando não for o primeiro (evita corte no rodapé da 1ª página com cabeçalho).
+    // Nas páginas seguintes, 2 pares por página com quebra a cada 2 pares.
+    const renderCell = (f, idx)=>{
+      if(!f) return '<td style="width:50%;vertical-align:top;padding:0 8px"></td>';
+      const src = f.dataUrl || '';
+      const desc = (f.descricao||'').trim();
+      const nome = (f.titulo || f.legenda || '').trim();
+      const legenda = `<span style="font-style:italic;font-family:Arial,Helvetica,sans-serif;font-size:12px"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</span>`;
+      return `<td style="width:50%;vertical-align:top;padding:0 8px;text-align:center">
+        <div style="width:6cm;height:8cm;max-width:6cm;max-height:8cm;margin:0 auto;box-sizing:border-box;border:1px solid #c8c8c8;background:#fafafa;display:flex;align-items:center;justify-content:center;overflow:hidden">
+          <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block"/>
+        </div>
+        <div style="margin-top:6px;text-align:center;word-wrap:break-word">${legenda}</div>
+        ${desc ? `<div style="margin-top:3px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#333;text-align:left;word-wrap:break-word"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
+      </td>`;
+    };
+    const blocks = [];
+    pairs.forEach((pair, pIdx)=>{
+      const [a,b,baseIdx] = pair;
+      // 1º par fica na 1ª página com o cabeçalho; a partir do 2º, força nova página
+      // e depois permite 2 pares por página (quebra a cada 2 a partir do índice 1).
+      let breakStyle = '';
+      if(pIdx === 1){
+        breakStyle = 'page-break-before:always;break-before:page;';
+      } else if(pIdx > 1 && (pIdx - 1) % 2 === 0){
+        breakStyle = 'page-break-before:always;break-before:page;';
+      }
+      blocks.push(
+        `<div class="insp-photo-pair" style="${breakStyle}page-break-inside:avoid;break-inside:avoid;margin:0 0 14px;-webkit-column-break-inside:avoid">`+
+        `<table style="width:100%;border-collapse:collapse;table-layout:fixed;page-break-inside:avoid;break-inside:avoid"><tr>`+
+        renderCell(a, baseIdx)+renderCell(b, baseIdx+1)+
+        `</tr></table></div>`
+      );
+    });
     fotosHtml = blocks.join('');
   }
-
   const adeqFromFotos = fotos.map((f,i)=>{
     const fig = figTitle(f, i);
     const desc = (f.descricao||'').trim() || '—';
@@ -5377,9 +5395,10 @@ function buildInspecaoReportElement(d){
   })();
 
   wrap.innerHTML = `
-    <div style="background:#EB0A1E;color:#fff;text-align:center;font-weight:800;font-size:15px;padding:10px 12px;margin:0 0 14px;letter-spacing:.03em;page-break-inside:avoid">
+    <div style="background:#EB0A1E;color:#fff;text-align:center;font-weight:800;font-size:15px;padding:10px 12px;margin:0;letter-spacing:.03em;page-break-inside:avoid;font-family:Arial,Helvetica,sans-serif">
       RELATÓRIO TÉCNICO FOTOGRÁFICO
     </div>
+    <div style="height:4px;background:linear-gradient(90deg,#C9A227,#E8C547,#C9A227);margin:0 0 14px"></div>
 
     <table style="width:100%;border-collapse:collapse;margin-bottom:14px;table-layout:fixed;page-break-inside:avoid">
       <tr><th colspan="2" style="background:#EB0A1E;color:#fff;text-align:left;padding:7px 10px;font-size:12px">FILIAL</th></tr>
@@ -5491,7 +5510,7 @@ async function printInspecao(){
   idoc.close();
 
   const shell = idoc.createElement('div');
-  shell.style.cssText = 'width:794px;margin:0 auto;padding:28px 20px 32px;box-sizing:border-box;background:#fff';
+  shell.style.cssText = 'width:794px;margin:0 auto;padding:24px 24px 28px;box-sizing:border-box;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px';
   const report = buildInspecaoReportElement(d);
   shell.appendChild(report);
   idoc.body.appendChild(shell);
@@ -5524,8 +5543,8 @@ async function printInspecao(){
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: {
-        mode: ['avoid-all', 'css', 'legacy'],
-        avoid: ['.insp-photo-pair', '.insp-photo-cell', 'tr', 'img']
+        mode: ['css', 'legacy'],
+        avoid: ['.insp-photo-pair', 'img', 'table', 'tr', 'td']
       }
     };
 
