@@ -5118,7 +5118,7 @@ function openInspecaoEditor(row){
   inspDraft = row ? JSON.parse(JSON.stringify(row)) : {
     id: uid(),
     filial: selectedUnit||'',
-    endereco:'', cnpj:'', responsavel:'',
+    endereco:'', cnpj:'', responsavel:'', cidade:'', elaborador:'', cargo:'', assinatura:'',
     objetivo:'Inspeção técnica – Adequações referente ao aspecto ambiental e de qualidade',
     servico:'',
     fotos:[],
@@ -5164,6 +5164,15 @@ function renderInspForm(){
     <div class="grid2m">
       <div class="mf"><label>Responsável</label><input id="insp_resp" value="${esc(d.responsavel||'')}"></div>
       <div class="mf"><label>Data da inspeção</label><input type="date" id="insp_data" value="${esc(d.data||todayISO())}"></div>
+    </div>
+    <div class="grid2m">
+      <div class="mf"><label>Cidade de elaboração do relatório</label><input id="insp_cidade" value="${esc(d.cidade||'')}" placeholder="Ex.: Sapucaia do Sul/RS"></div>
+      <div class="mf"><label>Nome do responsável pela elaboração</label><input id="insp_elaborador" value="${esc(d.elaborador||'')}"></div>
+    </div>
+    <div class="grid2m">
+      <div class="mf"><label>Cargo do elaborador</label><input id="insp_cargo" value="${esc(d.cargo||'')}" placeholder="Ex.: Analista de Meio Ambiente"></div>
+      <div class="mf"><label>Imagem da assinatura (opcional)</label><input type="file" id="insp_assinatura_file" accept="image/*" onchange="handleInspSignature(event)" style="width:100%;padding:7px;border:1px solid var(--line-2);border-radius:8px;background:#fff">
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">${d.assinatura ? 'Imagem de assinatura adicionada.' : 'Também será possível assinar manualmente após imprimir.'}</div></div>
     </div>
     <div class="section-label">Dados Gerais</div>
     <div class="mf"><label>Objetivo</label><textarea id="insp_objetivo">${esc(d.objetivo||'')}</textarea></div>
@@ -5213,6 +5222,13 @@ function handleInspFiles(ev){
   });
   try{ ev.target.value = ''; }catch(_e){}
 }
+function handleInspSignature(ev){
+  const file = (ev.target.files||[])[0];
+  if(!file || !inspDraft) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{ inspDraft.assinatura = reader.result; renderInspForm(); };
+  reader.readAsDataURL(file);
+}
 function removeInspPhoto(i){
   if(!inspDraft) return;
   inspDraft.fotos.splice(i,1);
@@ -5236,6 +5252,9 @@ function collectInspForm(){
   inspDraft.cnpj = (document.getElementById('insp_cnpj').value||'').trim();
   inspDraft.endereco = (document.getElementById('insp_endereco').value||'').trim();
   inspDraft.responsavel = (document.getElementById('insp_resp').value||'').trim();
+  inspDraft.cidade = (document.getElementById('insp_cidade')?.value||'').trim();
+  inspDraft.elaborador = (document.getElementById('insp_elaborador')?.value||'').trim();
+  inspDraft.cargo = (document.getElementById('insp_cargo')?.value||'').trim();
   inspDraft.data = document.getElementById('insp_data').value || todayISO();
   inspDraft.objetivo = document.getElementById('insp_objetivo').value||'';
   inspDraft.servico = document.getElementById('insp_servico').value||'';
@@ -5322,48 +5341,21 @@ function buildInspecaoReportElement(d){
   const fotos = d.fotos || [];
   let fotosHtml = '';
   if(!fotos.length){
-    fotosHtml = '<p style="color:#555;margin:8px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px">Sem fotos anexadas.</p>';
+    fotosHtml = '<p style="color:#555;margin:4px 0 8px;font-size:12px">Sem fotos anexadas.</p>';
   } else {
-    const pairs = [];
-    for(let i=0;i<fotos.length;i+=2){
-      pairs.push([fotos[i], fotos[i+1], i]);
-    }
-    // Cada par = bloco com altura controlada; quebra de página ANTES do par
-    // quando não for o primeiro (evita corte no rodapé da 1ª página com cabeçalho).
-    // Nas páginas seguintes, 2 pares por página com quebra a cada 2 pares.
-    const renderCell = (f, idx)=>{
-      if(!f) return '<td style="width:50%;vertical-align:top;padding:0 8px"></td>';
+    fotosHtml = fotos.map((f,idx)=>{
       const src = f.dataUrl || '';
       const desc = (f.descricao||'').trim();
       const nome = (f.titulo || f.legenda || '').trim();
-      const legenda = `<span style="font-style:italic;font-family:Arial,Helvetica,sans-serif;font-size:12px"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</span>`;
-      return `<td style="width:50%;vertical-align:top;padding:0 8px;text-align:center">
-        <div style="width:6cm;height:8cm;max-width:6cm;max-height:8cm;margin:0 auto;box-sizing:border-box;border:1px solid #c8c8c8;background:#fafafa;display:flex;align-items:center;justify-content:center;overflow:hidden">
-          <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block"/>
+      const legenda = `<div style="font-style:italic;font-size:11px;margin-top:3px;text-align:center"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</div>`;
+      return `<div class="insp-photo-item" style="display:inline-block;vertical-align:top;width:48%;margin:0 1% 9px;box-sizing:border-box;text-align:center;page-break-inside:avoid;break-inside:avoid;-webkit-column-break-inside:avoid">
+        <div style="width:100%;height:7.1cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff">
+          <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;border:0"/>
         </div>
-        <div style="margin-top:6px;text-align:center;word-wrap:break-word">${legenda}</div>
-        ${desc ? `<div style="margin-top:3px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#333;text-align:left;word-wrap:break-word"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
-      </td>`;
-    };
-    const blocks = [];
-    pairs.forEach((pair, pIdx)=>{
-      const [a,b,baseIdx] = pair;
-      // 1º par fica na 1ª página com o cabeçalho; a partir do 2º, força nova página
-      // e depois permite 2 pares por página (quebra a cada 2 a partir do índice 1).
-      let breakStyle = '';
-      if(pIdx === 1){
-        breakStyle = 'page-break-before:always;break-before:page;';
-      } else if(pIdx > 1 && (pIdx - 1) % 2 === 0){
-        breakStyle = 'page-break-before:always;break-before:page;';
-      }
-      blocks.push(
-        `<div class="insp-photo-pair" style="${breakStyle}page-break-inside:avoid;break-inside:avoid;margin:0 0 14px;-webkit-column-break-inside:avoid">`+
-        `<table style="width:100%;border-collapse:collapse;table-layout:fixed;page-break-inside:avoid;break-inside:avoid"><tr>`+
-        renderCell(a, baseIdx)+renderCell(b, baseIdx+1)+
-        `</tr></table></div>`
-      );
-    });
-    fotosHtml = blocks.join('');
+        ${legenda}
+        ${desc ? `<div style="margin-top:2px;font-size:11px;color:#333;text-align:left;line-height:1.3;word-wrap:break-word"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
+      </div>`;
+    }).join('');
   }
   const adeqFromFotos = fotos.map((f,i)=>{
     const fig = figTitle(f, i);
@@ -5442,7 +5434,7 @@ function buildInspecaoReportElement(d){
       </table>
     </div>
 
-    <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:12px 0 10px">FOTOS RELATÓRIO</div>
+    <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:8px 0 5px">FOTOS RELATÓRIO</div>
     ${fotosHtml}
 
     <div style="page-break-inside:avoid;margin-top:8px">
@@ -5459,10 +5451,11 @@ function buildInspecaoReportElement(d){
     <div style="page-break-inside:avoid">
       <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:12px 0 0">CONCLUSÃO</div>
       <div style="border:1px solid #999;padding:12px 14px;min-height:60px;font-size:12px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word">${esc(d.conclusao||'—')}</div>
-      <div style="margin-top:32px;text-align:center;font-size:12px;color:#222">
-        <div>${esc(mesAno)}</div>
-        <div style="margin-top:40px">_________________________________</div>
-        <div style="margin-top:4px;font-weight:700">Analista de Meio Ambiente</div>
+      <div style="margin-top:16px;text-align:center;font-size:11px;color:#222;page-break-inside:avoid;break-inside:avoid">
+        <div style="margin-bottom:16px">${esc(d.cidade||'Cidade não informada')}, ${esc(d.data ? new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'))}</div>
+        ${d.assinatura ? `<div style="height:48px;display:flex;align-items:center;justify-content:center;margin:0 auto 2px"><img src="${d.assinatura}" style="max-width:210px;max-height:46px;object-fit:contain"></div>` : '<div style="height:48px"></div>'}
+        <div style="width:260px;max-width:90%;border-top:1px solid #222;margin:0 auto;padding-top:4px;font-weight:700">${esc(d.elaborador||'Nome do responsável pela elaboração')}</div>
+        <div style="margin-top:2px">${esc(d.cargo||'Cargo do responsável')}</div>
       </div>
     </div>
   `;
@@ -5544,7 +5537,7 @@ async function printInspecao(){
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: {
         mode: ['css', 'legacy'],
-        avoid: ['.insp-photo-pair', 'img', 'table', 'tr', 'td']
+        avoid: ['.insp-photo-item', 'img', 'table', 'tr', 'td']
       }
     };
 
