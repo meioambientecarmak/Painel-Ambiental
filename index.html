@@ -5142,14 +5142,13 @@ function renderInspForm(){
       <img src="${f.dataUrl}" alt="">
       <div class="pc-body">
         <div class="pc-fig-label">
-          <span class="pc-num">Figura ${i+1}</span>
           <span class="pc-move">
             <button type="button" title="Subir" ${i===0?'disabled':''} onclick="moveInspPhoto(${i},-1)">↑</button>
             <button type="button" title="Descer" ${i>=nFotos-1?'disabled':''} onclick="moveInspPhoto(${i},1)">↓</button>
           </span>
         </div>
         <div class="pc-field">
-          <label>Figura ${i+1} — nome</label>
+          <label>Nome</label>
           <input value="${esc(f.titulo||'')}" oninput="inspDraft.fotos[${i}].titulo=this.value" placeholder="Ex.: Área interna - Entrada">
         </div>
         <div class="pc-field">
@@ -5315,8 +5314,9 @@ function buildInspecaoReportElement(d){
   const wrap = document.createElement('div');
   wrap.className = 'insp-pdf-root';
   wrap.setAttribute('style',
-    'width:794px;max-width:794px;box-sizing:border-box;padding:28px 32px 40px;'+
-    'background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.35;'
+    'width:794px;max-width:794px;box-sizing:border-box;padding:24px 28px 36px;'+
+    'background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.35;'+
+    'overflow:visible;position:relative;left:0;top:0;margin:0;'
   );
 
   const fotos = d.fotos || [];
@@ -5324,20 +5324,21 @@ function buildInspecaoReportElement(d){
   if(!fotos.length){
     fotosHtml = '<p style="color:#555;margin:8px 0">Sem fotos anexadas.</p>';
   } else {
+    fotosHtml = '<table style="width:100%;border-collapse:separate;border-spacing:12px 16px;table-layout:fixed">';
     for(let i=0;i<fotos.length;i+=2){
-      const a = fotos[i];
-      const b = fotos[i+1];
       const cell = (f, idx)=>{
-        if(!f) return '<div style="width:48%"></div>';
+        if(!f) return '<td style="width:50%;vertical-align:top"></td>';
         const src = f.dataUrl || '';
-        return `<div style="width:48%;text-align:center;page-break-inside:avoid">
-          <img src="${src}" crossorigin="anonymous" style="width:100%;max-height:240px;height:auto;object-fit:contain;border:1px solid #ccc;background:#f7f7f7;display:block"/>
-          <div style="margin-top:6px;font-size:11px;color:#222;font-style:italic">${esc(figTitle(f, idx))}</div>
-          ${f.descricao ? `<div style="margin-top:2px;font-size:10.5px;color:#333;font-style:normal;text-align:left"><b>Descrição:</b> ${esc(f.descricao)}</div>` : ''}
-        </div>`;
+        const desc = (f.descricao||'').trim();
+        return `<td style="width:50%;vertical-align:top;text-align:center;page-break-inside:avoid">
+          <img src="${src}" crossorigin="anonymous" style="width:100%;max-width:100%;max-height:260px;height:auto;object-fit:contain;border:1px solid #ccc;background:#f7f7f7;display:block;margin:0 auto"/>
+          <div style="margin-top:6px;font-size:11px;color:#222;font-style:italic;text-align:center">${esc(figTitle(f, idx))}</div>
+          ${desc ? `<div style="margin-top:3px;font-size:10.5px;color:#333;text-align:left"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
+        </td>`;
       };
-      fotosHtml += `<div style="display:flex;justify-content:space-between;gap:16px;margin:12px 0 18px;page-break-inside:avoid">${cell(a,i)}${cell(b,i+1)}</div>`;
+      fotosHtml += `<tr>${cell(fotos[i], i)}${cell(fotos[i+1], i+1)}</tr>`;
     }
+    fotosHtml += '</table>';
   }
 
   const adeqFromFotos = fotos.map((f,i)=>{
@@ -5474,72 +5475,82 @@ async function printInspecao(){
     String(d.filial||'inspecao').replace(/[^\wÀ-ÿ\-]+/g,'_').slice(0,40) + '_' +
     String(d.data||'').slice(0,10) + '.pdf';
 
-  // Monta o relatório em um nó real no DOM (garante conteúdo visível no PDF)
-  const existing = document.getElementById('insp-pdf-mount');
-  if(existing) existing.remove();
-  const mount = document.createElement('div');
-  mount.id = 'insp-pdf-mount';
-  mount.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:#fff;z-index:2147483646;opacity:1;pointer-events:none;overflow:visible;';
+  // Remove mounts anteriores
+  ['insp-pdf-mount','insp-print-frame'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.remove();
+  });
+
+  // Iframe isolado = captura sem corte de viewport / scroll da página principal
+  const iframe = document.createElement('iframe');
+  iframe.id = 'insp-print-frame';
+  iframe.setAttribute('title','Relatório inspeção');
+  iframe.style.cssText = 'position:fixed;left:0;top:0;width:794px;height:1123px;border:0;opacity:0;pointer-events:none;z-index:-1;background:#fff';
+  document.body.appendChild(iframe);
+
+  const idoc = iframe.contentDocument || iframe.contentWindow.document;
+  idoc.open();
+  idoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+filename.replace(/[<>]/g,'')+'</title>'+
+    '<style>html,body{margin:0;padding:0;background:#fff;}</style></head><body></body></html>');
+  idoc.close();
+
   const report = buildInspecaoReportElement(d);
-  mount.appendChild(report);
-  document.body.appendChild(mount);
-  // força layout
-  void mount.offsetHeight;
-  await waitImages(mount, 5000);
-  await new Promise(r=>setTimeout(r, 200));
+  // Largura A4 em px (~96dpi): 794; padding já está no elemento
+  report.style.width = '794px';
+  report.style.maxWidth = '794px';
+  report.style.boxSizing = 'border-box';
+  report.style.margin = '0';
+  idoc.body.appendChild(report);
+
+  await waitImages(idoc.body, 6000);
+  await new Promise(r=>setTimeout(r, 300));
 
   try{
     if(typeof html2pdf === 'undefined'){
       throw new Error('html2pdf indisponível');
     }
     const opt = {
-      margin: [8, 8, 10, 8],
+      margin: [10, 10, 12, 10],
       filename,
-      image: { type: 'jpeg', quality: 0.92 },
+      image: { type: 'jpeg', quality: 0.95 },
       html2canvas: {
         scale: 2,
         useCORS: true,
         allowTaint: true,
         logging: false,
         backgroundColor: '#ffffff',
-        width: mount.scrollWidth || 794,
-        windowWidth: 794,
         scrollX: 0,
-        scrollY: 0
+        scrollY: 0,
+        x: 0,
+        y: 0,
+        width: report.scrollWidth,
+        height: report.scrollHeight,
+        windowWidth: report.scrollWidth,
+        windowHeight: report.scrollHeight
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak: { mode: ['css', 'legacy'] }
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
     await html2pdf().set(opt).from(report).save();
   }catch(err){
     console.error('[MA] PDF inspeção', err);
-    // Fallback: impressão via iframe (sem depender de pop-up de window.open vazio)
     try{
-      let iframe = document.getElementById('insp-print-frame');
-      if(iframe) iframe.remove();
-      iframe = document.createElement('iframe');
-      iframe.id = 'insp-print-frame';
-      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0';
-      document.body.appendChild(iframe);
-      const doc = iframe.contentDocument || iframe.contentWindow.document;
-      doc.open();
-      doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>'+esc(filename)+'</title></head><body></body></html>');
-      doc.close();
-      doc.body.appendChild(report.cloneNode(true));
-      await waitImages(doc.body, 3000);
-      setTimeout(()=>{
-        try{ iframe.contentWindow.focus(); iframe.contentWindow.print(); }
-        catch(e2){ console.error(e2); alert('Falha ao gerar o PDF. Tente novamente.'); }
-      }, 400);
+      iframe.style.cssText = 'position:fixed;left:0;top:0;width:100%;height:100%;border:0;z-index:2147483647;background:#fff;opacity:1';
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(()=>{ try{ iframe.remove(); }catch(_e){} }, 1000);
+      return;
     }catch(e2){
       console.error(e2);
       alert('Falha ao gerar o PDF: '+(err.message||err));
     }
   }finally{
     setTimeout(()=>{
+      const f = document.getElementById('insp-print-frame');
+      if(f) f.remove();
       const m = document.getElementById('insp-pdf-mount');
       if(m) m.remove();
-    }, 1500);
+    }, 2000);
   }
 }
 
