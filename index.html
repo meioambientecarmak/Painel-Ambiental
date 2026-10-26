@@ -794,6 +794,23 @@ body.on-guia{
 .photo-card .pc-body input,.photo-card .pc-body textarea{
   width:100%;border:1px solid var(--line-2);border-radius:6px;padding:6px 8px;font-size:12px;margin-top:4px;
 }
+.photo-card .pc-fig-label{
+  font-size:12px;font-weight:800;color:var(--navy);margin-bottom:6px;
+  display:flex;align-items:center;justify-content:space-between;gap:6px;
+}
+.photo-card .pc-fig-label .pc-num{
+  background:linear-gradient(135deg,var(--navy),var(--teal));color:#fff;
+  padding:2px 8px;border-radius:6px;font-size:11px;letter-spacing:.02em;
+}
+.photo-card .pc-field{margin-top:6px}
+.photo-card .pc-field label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:2px}
+.photo-card .pc-move{display:flex;gap:4px}
+.photo-card .pc-move button{
+  appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink-2);
+  width:26px;height:26px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:700;padding:0;
+}
+.photo-card .pc-move button:hover{border-color:var(--gold);color:var(--navy)}
+.photo-card .pc-move button:disabled{opacity:.35;cursor:not-allowed}
 .photo-card .pc-del{
   position:absolute;top:6px;right:6px;background:rgba(185,28,28,.9);color:#fff;border:none;
   width:26px;height:26px;border-radius:8px;cursor:pointer;font-size:14px;
@@ -5117,13 +5134,28 @@ function openInspecaoEditor(row){
 function renderInspForm(){
   const d = inspDraft;
   if(!d) return;
+  normalizeInspFotos(d);
+  const nFotos = (d.fotos||[]).length;
   const fotosHtml = (d.fotos||[]).map((f,i)=>`
     <div class="photo-card">
-      <button type="button" class="pc-del" onclick="removeInspPhoto(${i})">×</button>
+      <button type="button" class="pc-del" onclick="removeInspPhoto(${i})" title="Remover foto">×</button>
       <img src="${f.dataUrl}" alt="">
       <div class="pc-body">
-        <label style="font-size:10px;font-weight:700;color:var(--muted)">Descrição / legenda</label>
-        <input value="${esc(f.legenda||'')}" onchange="inspDraft.fotos[${i}].legenda=this.value" placeholder="Figura ${i+1}: ...">
+        <div class="pc-fig-label">
+          <span class="pc-num">Figura ${i+1}</span>
+          <span class="pc-move">
+            <button type="button" title="Mover para cima" ${i===0?'disabled':''} onclick="moveInspPhoto(${i},-1)">↑</button>
+            <button type="button" title="Mover para baixo" ${i>=nFotos-1?'disabled':''} onclick="moveInspPhoto(${i},1)">↓</button>
+          </span>
+        </div>
+        <div class="pc-field">
+          <label>Figura ${i+1} — nome</label>
+          <input value="${esc(f.titulo||'')}" oninput="inspDraft.fotos[${i}].titulo=this.value" placeholder="Ex.: Área de armazenamento de óleos">
+        </div>
+        <div class="pc-field">
+          <label>Descrição</label>
+          <textarea rows="2" oninput="inspDraft.fotos[${i}].descricao=this.value" placeholder="Descreva o que a foto evidencia…">${esc(f.descricao||'')}</textarea>
+        </div>
       </div>
     </div>`).join('');
   document.getElementById('insp-form').innerHTML = `
@@ -5147,7 +5179,8 @@ function renderInspForm(){
     </div>
     <div class="photo-grid">${fotosHtml || '<div class="empty-state" style="padding:16px;grid-column:1/-1">Nenhuma foto adicionada</div>'}</div>
     <div class="section-label">Adequações identificadas</div>
-    <div class="mf"><label>Lista de adequações (uma por linha: Figura X — descrição)</label>
+    <p class="panel-sub" style="margin-top:-6px">No relatório, cada foto gera automaticamente a linha <b>Figura N — nome</b> e <b>Descrição</b>. Complemente abaixo se precisar de itens extras.</p>
+    <div class="mf"><label>Itens extras (opcional · uma por linha)</label>
       <textarea id="insp_adequacoes" style="min-height:100px">${esc((d.adequacoes||[]).join('\\n'))}</textarea>
     </div>
     <div class="mf"><label>Conclusão</label><textarea id="insp_conclusao">${esc(d.conclusao||'')}</textarea></div>
@@ -5157,6 +5190,16 @@ function renderInspForm(){
       <button type="button" class="btn-ma ghost" onclick="cancelInspecaoEditor()">Cancelar</button>
     </div>`;
 }
+function normalizeInspFotos(d){
+  if(!d) return;
+  d.fotos = (d.fotos||[]).map(f=>{
+    if(!f || typeof f!=='object') return f;
+    if((f.titulo==null || f.titulo==='') && f.legenda) f.titulo = f.legenda;
+    if(f.titulo==null) f.titulo = '';
+    if(f.descricao==null) f.descricao = '';
+    return f;
+  });
+}
 function handleInspFiles(ev){
   const files = [...(ev.target.files||[])];
   if(!files.length||!inspDraft) return;
@@ -5164,16 +5207,26 @@ function handleInspFiles(ev){
   files.forEach(file=>{
     const reader = new FileReader();
     reader.onload = ()=>{
-      inspDraft.fotos.push({ dataUrl: reader.result, legenda: file.name.replace(/\.[^.]+$/,'') });
+      const base = (file.name||'').replace(/\.[^.]+$/,'');
+      inspDraft.fotos.push({ dataUrl: reader.result, titulo: base, descricao: '' });
       pending--;
       if(pending<=0) renderInspForm();
     };
     reader.readAsDataURL(file);
   });
+  try{ ev.target.value = ''; }catch(_e){}
 }
 function removeInspPhoto(i){
   if(!inspDraft) return;
   inspDraft.fotos.splice(i,1);
+  renderInspForm();
+}
+function moveInspPhoto(i, dir){
+  if(!inspDraft || !inspDraft.fotos) return;
+  const j = i + dir;
+  if(j<0 || j>=inspDraft.fotos.length) return;
+  const arr = inspDraft.fotos;
+  const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
   renderInspForm();
 }
 function cancelInspecaoEditor(){
@@ -5257,17 +5310,25 @@ function printInspecao(){
   const editorOpen = document.getElementById('inspecao-editor') && document.getElementById('inspecao-editor').style.display !== 'none' && document.getElementById('insp_filial');
   const d = editorOpen ? (collectInspForm() || inspDraft) : inspDraft;
   if(!d){ alert('Abra ou crie uma inspeção primeiro.'); return; }
+  normalizeInspFotos(d);
   const fotos = (d.fotos||[]).map((f,i)=>`
-    <div style="display:inline-block;width:48%;vertical-align:top;margin:1%;text-align:center">
-      <img src="${f.dataUrl}" style="max-width:100%;max-height:220px;object-fit:contain;border:1px solid #ddd">
-      <div style="font-size:11px;margin-top:4px">Figura ${i+1}: ${esc(f.legenda||'')}</div>
+    <div style="display:inline-block;width:48%;vertical-align:top;margin:1%;page-break-inside:avoid;text-align:left">
+      <img src="${f.dataUrl}" style="max-width:100%;max-height:220px;object-fit:contain;border:1px solid #ddd;display:block;margin:0 auto">
+      <div style="font-size:12px;margin-top:6px;font-weight:700;color:#0B2E1F">Figura ${i+1} — ${esc(f.titulo||'')}</div>
+      <div style="font-size:11px;margin-top:2px;color:#333"><b>Descrição:</b> ${esc(f.descricao||'—')}</div>
     </div>`).join('');
-  const adeqRows = (d.adequacoes||[]).map(line=>{
-    const parts = line.split(/—|–|-/).map(s=>s.trim());
+  const adeqFromFotos = (d.fotos||[]).map((f,i)=>{
+    const fig = 'Figura '+(i+1) + (f.titulo ? ' — '+f.titulo : '');
+    const desc = f.descricao || '';
+    return `<tr><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(fig)}</td><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(desc||'—')}</td></tr>`;
+  }).join('');
+  const adeqExtra = (d.adequacoes||[]).map(line=>{
+    const parts = String(line).split(/—|–/).map(s=>s.trim());
     const fig = parts[0]||line;
     const desc = parts.slice(1).join(' — ')||'';
     return `<tr><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(fig)}</td><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(desc||line)}</td></tr>`;
   }).join('');
+  const adeqRows = adeqFromFotos + adeqExtra;
   const htmlDoc = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório Técnico Fotográfico — ${esc(d.filial)}</title>
   <style>
     body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:24px;font-size:12px}
