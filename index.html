@@ -5179,7 +5179,7 @@ function renderInspForm(){
     </div>
     <div class="photo-grid">${fotosHtml || '<div class="empty-state" style="padding:16px;grid-column:1/-1">Nenhuma foto adicionada</div>'}</div>
     <div class="section-label">Adequações identificadas</div>
-    <p class="panel-sub" style="margin-top:-6px">No relatório, cada foto gera automaticamente a linha <b>Figura N — nome</b> e <b>Descrição</b>. Complemente abaixo se precisar de itens extras.</p>
+    <p class="panel-sub" style="margin-top:-6px">No relatório, cada foto gera automaticamente <b>Figura N — nome</b> e <b>Descrição</b>. Complemente abaixo se precisar de itens extras.</p>
     <div class="mf"><label>Itens extras (opcional · uma por linha)</label>
       <textarea id="insp_adequacoes" style="min-height:100px">${esc((d.adequacoes||[]).join('\\n'))}</textarea>
     </div>
@@ -5306,14 +5306,11 @@ function downloadInspecaoById(id){
   inspDraft = JSON.parse(JSON.stringify(row));
   printInspecao();
 }
-function printInspecao(){
-  const editorOpen = document.getElementById('inspecao-editor') && document.getElementById('inspecao-editor').style.display !== 'none' && document.getElementById('insp_filial');
-  const d = editorOpen ? (collectInspForm() || inspDraft) : inspDraft;
-  if(!d){ alert('Abra ou crie uma inspeção primeiro.'); return; }
+function buildInspecaoReportHtml(d){
   normalizeInspFotos(d);
   const fotos = (d.fotos||[]).map((f,i)=>`
-    <div style="display:inline-block;width:48%;vertical-align:top;margin:1%;page-break-inside:avoid;text-align:left">
-      <img src="${f.dataUrl}" style="max-width:100%;max-height:220px;object-fit:contain;border:1px solid #ddd;display:block;margin:0 auto">
+    <div style="display:inline-block;width:48%;vertical-align:top;margin:1%;page-break-inside:avoid;text-align:left;box-sizing:border-box">
+      <img src="${f.dataUrl||''}" style="max-width:100%;max-height:220px;object-fit:contain;border:1px solid #ddd;display:block;margin:0 auto">
       <div style="font-size:12px;margin-top:6px;font-weight:700;color:#0B2E1F">Figura ${i+1} — ${esc(f.titulo||'')}</div>
       <div style="font-size:11px;margin-top:2px;color:#333"><b>Descrição:</b> ${esc(f.descricao||'—')}</div>
     </div>`).join('');
@@ -5329,9 +5326,9 @@ function printInspecao(){
     return `<tr><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(fig)}</td><td style="border:1px solid #ccc;padding:6px;font-size:11px">${esc(desc||line)}</td></tr>`;
   }).join('');
   const adeqRows = adeqFromFotos + adeqExtra;
-  const htmlDoc = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório Técnico Fotográfico — ${esc(d.filial)}</title>
+  return `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Relatório Técnico Fotográfico — ${esc(d.filial)}</title>
   <style>
-    body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:24px;font-size:12px}
+    body{font-family:Arial,Helvetica,sans-serif;color:#111;margin:24px;font-size:12px;background:#fff}
     .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #C9A227;padding-bottom:10px;margin-bottom:16px}
     .brand{font-weight:800;font-size:18px;color:#0B2E1F}
     h1{background:#B91C1C;color:#fff;text-align:center;padding:10px;font-size:16px;margin:0 0 14px}
@@ -5341,7 +5338,7 @@ function printInspecao(){
     h2{background:#B91C1C;color:#fff;padding:6px 10px;font-size:13px;margin:16px 0 8px}
     .concl{line-height:1.5;margin-top:8px}
     .foot{margin-top:28px;text-align:center;font-size:11px;color:#555}
-    @media print{body{margin:12px}}
+    @media print{body{margin:12px} .no-print{display:none!important}}
   </style></head><body>
   <div class="hdr"><div class="brand">Meio Ambiente · Carmak</div><div style="font-size:11px;color:#555">Relatório Técnico Fotográfico</div></div>
   <h1>RELATÓRIO TÉCNICO FOTOGRÁFICO</h1>
@@ -5368,13 +5365,104 @@ function printInspecao(){
     <p>${esc(d.filial)}, ${fmtDateISO(d.data)}</p>
     <p style="margin-top:24px">_________________________________<br>Analista de Meio Ambiente</p>
   </div>
-  <script>setTimeout(function(){window.print()},400)<\\/script>
   </body></html>`;
-  const w = window.open('','_blank','noopener,noreferrer');
-  if(!w){ alert('Permita pop-ups para gerar o relatório.'); return; }
-  w.document.write(htmlDoc);
-  w.document.close();
 }
+function printInspecao(){
+  const editorOpen = document.getElementById('inspecao-editor') && document.getElementById('inspecao-editor').style.display !== 'none' && document.getElementById('insp_filial');
+  const d = editorOpen ? (collectInspForm() || inspDraft) : inspDraft;
+  if(!d){ alert('Abra ou crie uma inspeção primeiro.'); return; }
+  const htmlDoc = buildInspecaoReportHtml(d);
+  const filename = 'Relatorio_Tecnico_Fotografico_' + String(d.filial||'inspecao').replace(/[^\wÀ-ÿ\-]+/g,'_').slice(0,40) + '_' + String(d.data||'').slice(0,10) + '.pdf';
+
+  // Prefer html2pdf (sem pop-up) — gera e baixa o PDF
+  if(typeof html2pdf !== 'undefined'){
+    let host = document.getElementById('insp-print-host');
+    if(!host){
+      host = document.createElement('div');
+      host.id = 'insp-print-host';
+      document.body.appendChild(host);
+    }
+    host.innerHTML = htmlDoc;
+    host.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:#fff;z-index:99999;opacity:1;pointer-events:none;';
+    const bodyEl = host.querySelector('body') || host;
+    // html2pdf from full document string: use a wrapper with the body content
+    const wrap = document.createElement('div');
+    wrap.innerHTML = htmlDoc.replace(/^[\s\S]*?<body[^>]*>/i,'').replace(/<\/body>[\s\S]*$/i,'');
+    wrap.style.cssText = 'position:fixed;left:0;top:0;width:794px;background:#fff;padding:24px;box-sizing:border-box;z-index:99999;color:#111;font-family:Arial,Helvetica,sans-serif;font-size:12px;';
+    // inject styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #C9A227;padding-bottom:10px;margin-bottom:16px}
+      .brand{font-weight:800;font-size:18px;color:#0B2E1F}
+      h1{background:#B91C1C;color:#fff;text-align:center;padding:10px;font-size:16px;margin:0 0 14px}
+      table.meta{width:100%;border-collapse:collapse;margin-bottom:14px}
+      table.meta th{background:#B91C1C;color:#fff;text-align:left;padding:6px 8px;font-size:11px}
+      table.meta td{border:1px solid #ccc;padding:6px 8px}
+      h2{background:#B91C1C;color:#fff;padding:6px 10px;font-size:13px;margin:16px 0 8px}
+      .concl{line-height:1.5;margin-top:8px}
+      .foot{margin-top:28px;text-align:center;font-size:11px;color:#555}
+    `;
+    wrap.prepend(style);
+    document.body.appendChild(wrap);
+    void wrap.offsetHeight;
+    const opt = {
+      margin: [10, 10, 12, 10],
+      filename,
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] }
+    };
+    html2pdf().set(opt).from(wrap).save().then(()=>{
+      wrap.remove();
+      if(host) host.innerHTML = '';
+    }).catch(err=>{
+      console.error(err);
+      wrap.remove();
+      openInspecaoPrintFallback(htmlDoc);
+    });
+    return;
+  }
+  openInspecaoPrintFallback(htmlDoc);
+}
+function openInspecaoPrintFallback(htmlDoc){
+  // Fallback sem pop-up: iframe oculto + print (ou blob URL)
+  try{
+    let iframe = document.getElementById('insp-print-frame');
+    if(iframe) iframe.remove();
+    iframe = document.createElement('iframe');
+    iframe.id = 'insp-print-frame';
+    iframe.setAttribute('style','position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none');
+    document.body.appendChild(iframe);
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open();
+    doc.write(htmlDoc);
+    doc.close();
+    setTimeout(()=>{
+      try{
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }catch(e){
+        console.warn(e);
+        // último recurso: blob em nova aba
+        const blob = new Blob([htmlDoc], {type:'text/html;charset=utf-8'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(()=>URL.revokeObjectURL(url), 60000);
+      }
+    }, 500);
+  }catch(e){
+    console.error(e);
+    alert('Não foi possível gerar o relatório. Tente novamente.');
+  }
+}
+
 
 // load local data at boot
 loadLocalData();
