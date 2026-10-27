@@ -3353,17 +3353,32 @@ async function saveLicenca(){
         const storagePath = origem + '/' + id + '/' + Date.now() + '_' + file.name.replace(/[^\w.\-]+/g,'_');
         try{
           const up = await uploadToBucket('licencas-docs', storagePath, file);
-          const { error: e2 } = await sb.from('licencas_anexos').upsert({
-            licenca_id: String(id),
-            origem,
-            doc_path: up.path,
-            doc_nome: up.nome,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'licenca_id,origem' });
-          if(e2) throw e2;
+          // 1) grava também nas colunas da própria tabela de licenças (já existem)
+          try{
+            await sb.from(table).update({
+              doc_url: up.path,
+              doc_nome: up.nome || file.name,
+              doc_atualizado_em: new Date().toISOString()
+            }).eq('id', id);
+          }catch(_e){ console.warn('[MA] update doc fields', _e); }
+          // 2) tenta tabela de anexos (se existir e schema OK)
+          try{
+            await sb.from('licencas_anexos').delete().eq('licenca_id', String(id)).eq('origem', origem);
+            const { error: e2 } = await sb.from('licencas_anexos').insert({
+              licenca_id: String(id),
+              origem,
+              doc_path: up.path,
+              doc_nome: up.nome || file.name,
+              updated_at: new Date().toISOString()
+            });
+            if(e2) console.warn('[MA] licencas_anexos insert', e2.message);
+          }catch(eAn){ console.warn('[MA] licencas_anexos', eAn); }
+          // aplica no objeto em memória para o botão de download funcionar já
+          document.getElementById('lic_doc_url').value = up.path;
+          document.getElementById('lic_doc_nome').value = up.nome || file.name;
         }catch(upErr){
           console.error(upErr);
-          alert('Licença salva, mas o PDF falhou: '+(upErr.message||upErr)+'\n\nVerifique: bucket licencas-docs e tabela licencas_anexos (SQL criar_licencas_anexos.sql).');
+          alert('Licença salva, mas o PDF falhou: '+(upErr.message||upErr)+'\n\nVerifique: bucket licencas-docs e policies de Storage.');
           closeLicModal();
           if(isForn){ await loadLicencasFornecedoresFromCloud(); renderLicencas(); }
           else { await refreshLicencasAndRender(); }
@@ -4001,6 +4016,10 @@ function applyAnexoToRow(row, origem){
     row.doc_path = a.doc_path;
     row.doc_url = a.doc_path;
     row.doc_nome = a.doc_nome;
+  } else if(row.doc_url || row.doc_path){
+    // já veio da coluna da tabela licencas
+    row.doc_path = row.doc_path || row.doc_url;
+    row.doc_url = row.doc_url || row.doc_path;
   }
   return row;
 }
@@ -4017,7 +4036,10 @@ function mapLicencaRow(row){
     'Data Solicitação Renovação': row.data_solicitacao || '',
     'Válida até': row.valida_ate || '',
     'Status': row.status || '',
-    'Observações': row.observacoes || ''
+    'Observações': row.observacoes || '',
+    doc_url: row.doc_url || '',
+    doc_nome: row.doc_nome || '',
+    doc_path: row.doc_url || row.doc_path || ''
   };
 }
 
@@ -5482,16 +5504,21 @@ function buildInspecaoReportElement(d){
       const desc = (f.descricao||'').trim();
       const nome = (f.titulo || f.legenda || '').trim();
       const legenda = `<div style="font-style:italic;font-size:11px;margin-top:4px;text-align:center"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</div>`;
-      return `<div class="insp-photo-item" style="display:block;width:100%;margin:0 0 14px;box-sizing:border-box;text-align:center;page-break-inside:avoid;break-inside:avoid;page-break-before:auto;page-break-after:auto">
-        <div style="width:100%;max-height:9.5cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:1px solid #eee">
-          <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:9.5cm;width:auto;height:auto;object-fit:contain;display:block;border:0"/>
+      return `<div class="insp-photo-item" style="display:inline-block;vertical-align:top;width:48%;margin:0 1% 12px;box-sizing:border-box;text-align:center;page-break-inside:avoid;break-inside:avoid">
+        <div style="width:100%;height:6.2cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:1px solid #eee">
+          <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;border:0"/>
         </div>
         ${legenda}
-        ${desc ? `<div style="margin-top:2px;font-size:11px;color:#333;text-align:left;line-height:1.3;word-wrap:break-word"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
+        ${desc ? `<div style="margin-top:2px;font-size:10.5px;color:#333;text-align:left;line-height:1.3;word-wrap:break-word"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
       </div>`;
     });
-    // 1 foto por bloco; evita corte. Pares opcionais via CSS float seria pior para page-break.
-    fotosHtml = items.join('');
+    let rows = '';
+    for(let i=0;i<items.length;i+=2){
+      const a = items[i];
+      const b = items[i+1] || '<div style="display:inline-block;width:48%;margin:0 1%"></div>';
+      rows += `<div class="insp-photo-row" style="width:100%;overflow:hidden;page-break-inside:avoid;break-inside:avoid;margin:0 0 6px">${a}${b}</div>`;
+    }
+    fotosHtml = rows;
   }
   const adeqFromFotos = fotos.map((f,i)=>{
     const fig = figTitle(f, i);
@@ -5584,16 +5611,17 @@ function buildInspecaoReportElement(d){
       </table>
     </div>
 
-    <div style="page-break-inside:avoid">
-      <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:12px 0 0">CONCLUSÃO</div>
+    <div style="page-break-before:auto;margin-top:16px">
+      <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:0">CONCLUSÃO</div>
       <div style="border:1px solid #999;padding:12px 14px;min-height:60px;font-size:12px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word">${esc(d.conclusao||'—')}</div>
-      <div style="margin-top:16px;text-align:center;font-size:11px;color:#222;page-break-inside:avoid;break-inside:avoid">
-        <div style="margin-bottom:16px">${esc(d.cidade||'Cidade não informada')}, ${esc(d.data ? new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'))}</div>
-        ${d.assinatura ? `<div style="height:48px;display:flex;align-items:center;justify-content:center;margin:0 auto 2px"><img src="${d.assinatura}" style="max-width:210px;max-height:46px;object-fit:contain"></div>` : '<div style="height:48px"></div>'}
-        <div style="width:260px;max-width:90%;border-top:1px solid #222;margin:0 auto;padding-top:4px;font-weight:700">${esc(d.elaborador||'Nome do responsável pela elaboração')}</div>
-        <div style="margin-top:2px">${esc(d.cargo||'Cargo do responsável')}</div>
+      <div style="margin-top:20px;margin-bottom:28px;text-align:center;font-size:11px;color:#222;page-break-inside:avoid;break-inside:avoid">
+        <div style="margin-bottom:18px">${esc(d.cidade||'Cidade não informada')}, ${esc(d.data ? new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'))}</div>
+        ${d.assinatura ? `<div style="height:52px;display:flex;align-items:center;justify-content:center;margin:0 auto 4px"><img src="${d.assinatura}" style="max-width:210px;max-height:50px;object-fit:contain"></div>` : '<div style="height:52px"></div>'}
+        <div style="width:260px;max-width:90%;border-top:1px solid #222;margin:0 auto;padding-top:6px;font-weight:700">${esc(d.elaborador||'Nome do responsável pela elaboração')}</div>
+        <div style="margin-top:3px">${esc(d.cargo||'Cargo do responsável')}</div>
       </div>
     </div>
+    <div style="height:24px"></div>
   `;
   return wrap;
 }
@@ -5652,7 +5680,7 @@ async function printInspecao(){
       throw new Error('html2pdf indisponível');
     }
     const opt = {
-      margin: [14, 15, 18, 15],
+      margin: [12, 14, 16, 14],
       filename,
       image: { type: 'jpeg', quality: 0.95 },
       html2canvas: {
@@ -5666,14 +5694,14 @@ async function printInspecao(){
         x: 0,
         y: 0,
         width: shell.scrollWidth,
-        height: shell.scrollHeight,
+        height: Math.max(shell.scrollHeight, shell.offsetHeight) + 40,
         windowWidth: shell.scrollWidth,
-        windowHeight: shell.scrollHeight
+        windowHeight: Math.max(shell.scrollHeight, shell.offsetHeight) + 40
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: {
         mode: ['css', 'legacy'],
-        avoid: ['.insp-photo-item', 'img', 'table', 'tr']
+        avoid: ['.insp-photo-row', '.insp-photo-item', 'img']
       }
     };
 
