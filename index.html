@@ -4630,18 +4630,21 @@ async function syncModulesFromCloud(){
     } else if(e2) out.lembretes = e2.message;
     const { data: insp, error: e3 } = await sb.from('inspecoes').select('*').order('data',{ascending:false});
     if(!e3 && insp){
-      // merge cloud metadata with local photos by id
       loadLocalData();
       const localById = {};
       (DATA_LOCAL.inspecoes||[]).forEach(x=>{ localById[x.id]=x; });
+      const ids = insp.map(r=>r.id).filter(Boolean);
+      let fotoMap = {};
+      try{ fotoMap = await loadInspecaoFotosFromCloud(ids); }catch(_e){}
       DATA_LOCAL.inspecoes = insp.map(r=>{
         const loc = localById[r.id]||{};
+        const cloudFotos = fotoMap[r.id];
         return {
           id:r.id, filial:r.filial, endereco:r.endereco||'', cnpj:r.cnpj||'',
           responsavel:r.responsavel||'', data:r.data, objetivo:r.objetivo||'',
           servico:r.servico||'', conclusao:r.conclusao||'',
           adequacoes: Array.isArray(r.adequacoes)?r.adequacoes:(typeof r.adequacoes==='string'?JSON.parse(r.adequacoes||'[]'):[]),
-          fotos: loc.fotos||[]
+          fotos: (cloudFotos && cloudFotos.length) ? cloudFotos : (loc.fotos||[])
         };
       });
     } else if(e3) out.inspecoes = e3.message;
@@ -5108,10 +5111,22 @@ function selectCalDay(iso){
 
 /* ---- Inspeções Técnicas ---- */
 let inspDraft = null;
-function openInspecaoById(id){
+async function openInspecaoById(id){
   loadLocalData();
-  const row = DATA_LOCAL.inspecoes.find(x=>x.id===id);
-  if(row) openInspecaoEditor(row);
+  let row = DATA_LOCAL.inspecoes.find(x=>x.id===id);
+  if(!row) return;
+  if(sb && currentUser){
+    try{
+      const map = await loadInspecaoFotosFromCloud([id]);
+      if(map[id] && map[id].length){
+        row = Object.assign({}, row, { fotos: map[id] });
+        const i = DATA_LOCAL.inspecoes.findIndex(x=>x.id===id);
+        if(i>=0) DATA_LOCAL.inspecoes[i].fotos = map[id];
+        saveLocalData();
+      }
+    }catch(_e){}
+  }
+  openInspecaoEditor(row);
 }
 function openInspecaoEditor(row){
   loadLocalData();
@@ -5262,13 +5277,93 @@ function collectInspForm(){
   inspDraft.adequacoes = (document.getElementById('insp_adequacoes').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
   return inspDraft;
 }
-function saveInspecao(){
+function dataUrlToFile(dataUrl, filename){
+  const arr = String(dataUrl||'').split(',');
+  const mimeMatch = arr[0] && arr[0].match(/:(.*?);/);
+  const mime = (mimeMatch && mimeMatch[1]) || 'image/jpeg';
+  const bstr = atob(arr[1]||'');
+  let n = bstr.length;
+  const u8 = new Uint8Array(n);
+  while(n--) u8[n] = bstr.charCodeAt(n);
+  return new File([u8], filename, { type: mime });
+}
+async function uploadInspecaoFotos(inspecaoId, fotos){
+  if(!sb || !currentUser || !inspecaoId) return [];
+  const out = [];
+  try{ await sb.from('inspecoes_fotos').delete().eq('inspecao_id', inspecaoId); }catch(_e){}
+  for(let i=0;i<(fotos||[]).length;i++){
+    const f = fotos[i];
+    if(!f) continue;
+    let storagePath = f.storage_path || null;
+    let dataUrl = f.dataUrl || null;
+    if(storagePath && (!dataUrl || String(dataUrl).startsWith('http'))){
+      out.push({
+        inspecao_id: inspecaoId,
+        storage_path: storagePath,
+        titulo: f.titulo||'',
+        descricao: f.descricao||'',
+        ordem: i
+      });
+      continue;
+    }
+    if(!dataUrl || !String(dataUrl).startsWith('data:')) continue;
+    const ext = (dataUrl.indexOf('image/png')>=0) ? 'png' : (dataUrl.indexOf('image/webp')>=0 ? 'webp' : 'jpg');
+    const fname = 'foto_' + String(i+1).padStart(2,'0') + '.' + ext;
+    storagePath = inspecaoId + '/' + Date.now() + '_' + fname;
+    try{
+      const file = dataUrlToFile(dataUrl, fname);
+      const up = await uploadToBucket('inspecoes-fotos', storagePath, file);
+      out.push({
+        inspecao_id: inspecaoId,
+        storage_path: up.path,
+        titulo: f.titulo||'',
+        descricao: f.descricao||'',
+        ordem: i
+      });
+      f.storage_path = up.path;
+      f.dataUrl = up.url || dataUrl;
+    }catch(err){
+      console.warn('[MA] upload foto inspeção', i, err);
+    }
+  }
+  if(out.length){
+    const { error } = await sb.from('inspecoes_fotos').upsert(out);
+    if(error) console.warn('[MA] inspecoes_fotos upsert', error.message);
+  }
+  return out;
+}
+async function loadInspecaoFotosFromCloud(inspecaoIds){
+  if(!sb || !currentUser || !inspecaoIds || !inspecaoIds.length) return {};
+  const map = {};
+  try{
+    const { data, error } = await sb.from('inspecoes_fotos')
+      .select('*')
+      .in('inspecao_id', inspecaoIds)
+      .order('ordem', { ascending: true });
+    if(error) throw error;
+    for(const row of (data||[])){
+      if(!map[row.inspecao_id]) map[row.inspecao_id] = [];
+      let url = null;
+      try{ url = await signedUrlFromPath('inspecoes-fotos', row.storage_path); }catch(_e){}
+      map[row.inspecao_id].push({
+        storage_path: row.storage_path,
+        titulo: row.titulo||'',
+        descricao: row.descricao||'',
+        ordem: row.ordem||0,
+        dataUrl: url || ''
+      });
+    }
+  }catch(e){ console.warn('[MA] load inspecoes_fotos', e); }
+  return map;
+}
+async function saveInspecao(){
   const d = collectInspForm();
   if(!d||!d.filial){ alert('Informe a filial.'); return; }
   loadLocalData();
   const idx = DATA_LOCAL.inspecoes.findIndex(x=>x.id===d.id);
   if(idx>=0) DATA_LOCAL.inspecoes[idx]=d; else DATA_LOCAL.inspecoes.unshift(d);
   saveLocalData();
+
   if(sb && currentUser){
     const payload = {
       id:d.id, filial:d.filial, endereco:d.endereco||null, cnpj:d.cnpj||null,
@@ -5276,20 +5371,48 @@ function saveInspecao(){
       servico:d.servico||null, adequacoes:d.adequacoes||[], conclusao:d.conclusao||null,
       updated_at:new Date().toISOString()
     };
-    sb.from('inspecoes').upsert(payload).then(({error})=>{
-      if(error) console.warn('[MA] inspecoes', error.message);
-    });
+    try{
+      const { error } = await sb.from('inspecoes').upsert(payload);
+      if(error) throw error;
+      await uploadInspecaoFotos(d.id, d.fotos||[]);
+      const fotoMap = await loadInspecaoFotosFromCloud([d.id]);
+      if(fotoMap[d.id] && fotoMap[d.id].length){
+        d.fotos = fotoMap[d.id];
+        const i2 = DATA_LOCAL.inspecoes.findIndex(x=>x.id===d.id);
+        if(i2>=0) DATA_LOCAL.inspecoes[i2].fotos = d.fotos;
+        saveLocalData();
+      }
+      cancelInspecaoEditor();
+      renderInspecoes();
+      alert('Inspeção salva na nuvem (metadados + fotos).');
+      return;
+    }catch(err){
+      console.warn('[MA] save inspecao', err);
+      alert('Metadados salvos localmente. Erro ao gravar na nuvem: '+(err.message||err));
+    }
   }
   cancelInspecaoEditor();
   renderInspecoes();
-  alert('Inspeção salva (metadados na nuvem; fotos neste navegador).');
+  alert('Inspeção salva localmente (faça login para gravar fotos na nuvem).');
 }
-function deleteInspecao(id){
+async function deleteInspecao(id){
   if(!confirm('Excluir esta inspeção?')) return;
   loadLocalData();
   DATA_LOCAL.inspecoes = DATA_LOCAL.inspecoes.filter(x=>x.id!==id);
   saveLocalData();
-  if(sb && currentUser) sb.from('inspecoes').delete().eq('id',id).then(({error})=>{ if(error) console.warn(error.message); });
+  if(sb && currentUser){
+    try{
+      await sb.from('inspecoes_fotos').delete().eq('inspecao_id', id);
+      try{
+        const { data: files } = await sb.storage.from('inspecoes-fotos').list(id);
+        if(files && files.length){
+          await sb.storage.from('inspecoes-fotos').remove(files.map(f=> id + '/' + f.name));
+        }
+      }catch(_e){}
+      const { error } = await sb.from('inspecoes').delete().eq('id', id);
+      if(error) console.warn(error.message);
+    }catch(e){ console.warn(e); }
+  }
   renderInspecoes();
 }
 function renderInspecoes(){
@@ -5315,10 +5438,21 @@ function renderInspecoes(){
       </div>
     </div>`).join('');
 }
-function downloadInspecaoById(id){
+async function downloadInspecaoById(id){
   loadLocalData();
-  const row = (DATA_LOCAL.inspecoes||[]).find(x=>x.id===id);
+  let row = (DATA_LOCAL.inspecoes||[]).find(x=>x.id===id);
   if(!row){ alert('Inspeção não encontrada.'); return; }
+  if(sb && currentUser){
+    try{
+      const map = await loadInspecaoFotosFromCloud([id]);
+      if(map[id] && map[id].length){
+        row = Object.assign({}, row, { fotos: map[id] });
+        const i = DATA_LOCAL.inspecoes.findIndex(x=>x.id===id);
+        if(i>=0) DATA_LOCAL.inspecoes[i].fotos = map[id];
+        saveLocalData();
+      }
+    }catch(_e){}
+  }
   inspDraft = JSON.parse(JSON.stringify(row));
   printInspecao();
 }
@@ -5333,9 +5467,9 @@ function buildInspecaoReportElement(d){
   const wrap = document.createElement('div');
   wrap.className = 'insp-pdf-root';
   wrap.setAttribute('style',
-    'width:700px;max-width:700px;margin:0 auto;box-sizing:border-box;padding:8px 0 12px;'+
+    'width:170mm;max-width:170mm;margin:0 auto;box-sizing:border-box;padding:4px 0 10px;'+
     'background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;'+
-    'overflow:visible;position:relative;'
+    'overflow:visible;position:relative;text-align:left;'
   );
 
   const fotos = d.fotos || [];
@@ -5343,19 +5477,21 @@ function buildInspecaoReportElement(d){
   if(!fotos.length){
     fotosHtml = '<p style="color:#555;margin:4px 0 8px;font-size:12px">Sem fotos anexadas.</p>';
   } else {
-    fotosHtml = fotos.map((f,idx)=>{
+    const items = fotos.map((f,idx)=>{
       const src = f.dataUrl || '';
       const desc = (f.descricao||'').trim();
       const nome = (f.titulo || f.legenda || '').trim();
-      const legenda = `<div style="font-style:italic;font-size:11px;margin-top:3px;text-align:center"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</div>`;
-      return `<div class="insp-photo-item" style="display:inline-block;vertical-align:top;width:48%;margin:0 1% 9px;box-sizing:border-box;text-align:center;page-break-inside:avoid;break-inside:avoid;-webkit-column-break-inside:avoid">
-        <div style="width:100%;height:7.1cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff">
-          <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;border:0"/>
+      const legenda = `<div style="font-style:italic;font-size:11px;margin-top:4px;text-align:center"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</div>`;
+      return `<div class="insp-photo-item" style="display:block;width:100%;margin:0 0 14px;box-sizing:border-box;text-align:center;page-break-inside:avoid;break-inside:avoid;page-break-before:auto;page-break-after:auto">
+        <div style="width:100%;max-height:9.5cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:1px solid #eee">
+          <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:9.5cm;width:auto;height:auto;object-fit:contain;display:block;border:0"/>
         </div>
         ${legenda}
         ${desc ? `<div style="margin-top:2px;font-size:11px;color:#333;text-align:left;line-height:1.3;word-wrap:break-word"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
       </div>`;
-    }).join('');
+    });
+    // 1 foto por bloco; evita corte. Pares opcionais via CSS float seria pior para page-break.
+    fotosHtml = items.join('');
   }
   const adeqFromFotos = fotos.map((f,i)=>{
     const fig = figTitle(f, i);
@@ -5503,7 +5639,7 @@ async function printInspecao(){
   idoc.close();
 
   const shell = idoc.createElement('div');
-  shell.style.cssText = 'width:794px;margin:0 auto;padding:24px 24px 28px;box-sizing:border-box;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px';
+  shell.style.cssText = 'width:170mm;max-width:170mm;margin:0 auto;padding:8px 0 12px;box-sizing:border-box;background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:12px;text-align:left;';
   const report = buildInspecaoReportElement(d);
   shell.appendChild(report);
   idoc.body.appendChild(shell);
@@ -5516,7 +5652,7 @@ async function printInspecao(){
       throw new Error('html2pdf indisponível');
     }
     const opt = {
-      margin: [16, 12, 16, 12],
+      margin: [14, 15, 18, 15],
       filename,
       image: { type: 'jpeg', quality: 0.95 },
       html2canvas: {
@@ -5537,7 +5673,7 @@ async function printInspecao(){
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: {
         mode: ['css', 'legacy'],
-        avoid: ['.insp-photo-item', 'img', 'table', 'tr', 'td']
+        avoid: ['.insp-photo-item', 'img', 'table', 'tr']
       }
     };
 
