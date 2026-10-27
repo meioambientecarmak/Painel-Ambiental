@@ -924,6 +924,7 @@ body:not(.is-admin) .admin-only-inline{display:none !important}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body class="on-guia">
 
@@ -1333,15 +1334,54 @@ body:not(.is-admin) .admin-only-inline{display:none !important}
     <div class="mb">
       <input type="hidden" id="acao_id">
       <div class="grid2m">
-        <div class="mf"><label>Data de criação *</label><input type="date" id="acao_criacao"></div>
-        <div class="mf"><label>Cliente / Filial *</label><input id="acao_filial" list="dl-unidades"></div>
+        <div class="mf"><label>Empresa / Unidade *</label><input id="acao_filial" list="dl-unidades"></div>
+        <div class="mf"><label>Setor / Área</label><input id="acao_setor" placeholder="Ex.: Oficina, Almoxarifado"></div>
       </div>
-      <div class="mf"><label>Descrição da ação *</label><textarea id="acao_desc"></textarea></div>
       <div class="grid2m">
-        <div class="mf"><label>Responsável *</label><input id="acao_resp"></div>
-        <div class="mf"><label>Previsão de término *</label><input type="date" id="acao_prev"></div>
+        <div class="mf"><label>Responsável pelo Plano *</label><input id="acao_resp"></div>
+        <div class="mf"><label>Data de elaboração *</label><input type="date" id="acao_criacao"></div>
       </div>
-      <div class="mf"><label>Microações (uma por linha)</label><textarea id="acao_micros" placeholder="Ex.: Demarcar área de óleos&#10;Identificar coletores&#10;Treinar equipe"></textarea></div>
+      <div class="grid2m">
+        <div class="mf"><label>O que fazer (ação) *</label><textarea id="acao_desc" rows="2" placeholder="Ação / atividade"></textarea></div>
+        <div class="mf"><label>Por quê (justificativa)</label><textarea id="acao_porque" rows="2" placeholder="Justificativa / objetivo"></textarea></div>
+      </div>
+      <div class="mf"><label>Como fazer</label><textarea id="acao_como" rows="2" placeholder="Descrição da ação"></textarea></div>
+      <div class="grid2m">
+        <div class="mf"><label>Prazo (realização) *</label><input type="date" id="acao_prev"></div>
+        <div class="mf"><label>Status</label>
+          <select id="acao_status">
+            <option value="Não iniciado">Não iniciado</option>
+            <option value="Pendente">Pendente</option>
+            <option value="Em andamento">Em andamento</option>
+            <option value="Concluído">Concluído</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2m">
+        <div class="mf"><label>Prioridade</label>
+          <select id="acao_prioridade">
+            <option value="Baixa">Baixa</option>
+            <option value="Média">Média</option>
+            <option value="Alta">Alta</option>
+            <option value="Crítica">Crítica</option>
+          </select>
+        </div>
+        <div class="mf"><label>Origem da demanda</label>
+          <select id="acao_origem">
+            <option value="Auditoria / Inspeção">Auditoria / Inspeção</option>
+            <option value="Não Conformidade (NC)">Não Conformidade (NC)</option>
+            <option value="Ação Corretiva / Preventiva">Ação Corretiva / Preventiva</option>
+            <option value="Reclamação / Sugestão">Reclamação / Sugestão</option>
+            <option value="Requisito Legal / Licença">Requisito Legal / Licença</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid2m">
+        <div class="mf"><label>Evidência (comprovação)</label><input id="acao_evidencia" placeholder="Ex.: Protocolo, fotos, lista de presença"></div>
+        <div class="mf"><label>Observações</label><input id="acao_obs" placeholder="Observações"></div>
+      </div>
+      <div class="mf"><label>Microações / checklist (uma por linha)</label><textarea id="acao_micros" placeholder="Ex.: Demarcar área de óleos&#10;Identificar coletores&#10;Treinar equipe"></textarea></div>
     </div>
     <div class="ma">
       <button type="button" class="btn-ma ghost" onclick="closeAcaoModal()">Cancelar</button>
@@ -2188,6 +2228,8 @@ function renderFilters(){
   } else if(selectedModule==='planoacao'){
     document.getElementById('filt-planoacao').innerHTML = scope +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openAcaoModal(null)">+ Nova ação</button>
+       <button type="button" class="btn-ma primary" style="margin-top:14px" onclick="exportPlanoAcaoPDF()">↓ PDF</button>
+       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="exportPlanoAcaoExcel()">↓ Excel</button>
        <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadLocalData();renderPlanoAcao();">↻ Atualizar</button>`;
   } else if(selectedModule==='inspecoes'){
     document.getElementById('filt-inspecoes').innerHTML = scope +
@@ -4640,11 +4682,27 @@ async function syncModulesFromCloud(){
   try{
     const { data: acoes, error: e1 } = await sb.from('plano_acoes').select('*').order('criacao',{ascending:false});
     if(!e1 && acoes){
-      DATA_LOCAL.acoes = acoes.map(r=>({
-        id:r.id, criacao:r.criacao, filial:r.filial, descricao:r.descricao,
-        responsavel:r.responsavel, previsao:r.previsao, concluida:r.concluida,
-        micros: Array.isArray(r.micros)?r.micros:(typeof r.micros==='string'?JSON.parse(r.micros||'[]'):[])
-      }));
+      loadLocalData();
+      const localAcoes = {};
+      (DATA_LOCAL.acoes||[]).forEach(x=>{ localAcoes[x.id]=x; });
+      DATA_LOCAL.acoes = acoes.map(r=>{
+        const loc = localAcoes[r.id]||{};
+        let meta = {};
+        try{ meta = typeof r.meta==='string'?JSON.parse(r.meta||'{}'):(r.meta||{}); }catch(_e){}
+        return {
+          id:r.id, criacao:r.criacao, filial:r.filial, descricao:r.descricao,
+          responsavel:r.responsavel, previsao:r.previsao, concluida:r.concluida,
+          micros: Array.isArray(r.micros)?r.micros:(typeof r.micros==='string'?JSON.parse(r.micros||'[]'):[]),
+          setor: r.setor||meta.setor||loc.setor||'',
+          porque: r.porque||meta.porque||loc.porque||'',
+          como: r.como||meta.como||loc.como||'',
+          status: r.status||meta.status||loc.status||'',
+          prioridade: r.prioridade||meta.prioridade||loc.prioridade||'',
+          origem: r.origem||meta.origem||loc.origem||'',
+          evidencia: r.evidencia||meta.evidencia||loc.evidencia||'',
+          obs: r.obs||meta.obs||loc.obs||''
+        };
+      });
     } else if(e1) out.acoes = e1.message;
     const { data: lems, error: e2 } = await sb.from('lembretes').select('*').order('data',{ascending:true});
     if(!e2 && lems){
@@ -4713,10 +4771,18 @@ function openAcaoModal(row){
   loadLocalData();
   document.getElementById('acao_id').value = row&&row.id?row.id:'';
   document.getElementById('acao_criacao').value = row?row.criacao||todayISO():todayISO();
-  document.getElementById('acao_filial').value = row?row.filial||'':'';
+  document.getElementById('acao_filial').value = row?row.filial||selectedUnit||'':'';
+  document.getElementById('acao_setor').value = row?row.setor||'':'';
   document.getElementById('acao_desc').value = row?row.descricao||'':'';
+  document.getElementById('acao_porque').value = row?row.porque||'':'';
+  document.getElementById('acao_como').value = row?row.como||'':'';
   document.getElementById('acao_resp').value = row?row.responsavel||'':'';
   document.getElementById('acao_prev').value = row?row.previsao||'':'';
+  document.getElementById('acao_status').value = row?row.status||'Não iniciado':'Não iniciado';
+  document.getElementById('acao_prioridade').value = row?row.prioridade||'Média':'Média';
+  document.getElementById('acao_origem').value = row?row.origem||'Auditoria / Inspeção':'Auditoria / Inspeção';
+  document.getElementById('acao_evidencia').value = row?row.evidencia||'':'';
+  document.getElementById('acao_obs').value = row?row.obs||'':'';
   document.getElementById('acao_micros').value = row&&row.micros?row.micros.map(m=>m.text).join('\n'):'';
   document.getElementById('modal-acao-title').textContent = row&&row.id?'Editar ação':'Nova ação';
   document.getElementById('modal-acao').classList.add('on');
@@ -4739,7 +4805,19 @@ function saveAcao(){
     const prevM = oldMicros.find(m=>m.text===text) || oldMicros[i];
     return { id: (prevM&&prevM.id)||uid(), text, done: !!(prevM&&prevM.done) };
   });
-  const row = { id, criacao, filial, descricao:desc, responsavel:resp, previsao:prev, micros, concluida:null };
+  const setor = (document.getElementById('acao_setor')?.value||'').trim();
+  const porque = (document.getElementById('acao_porque')?.value||'').trim();
+  const como = (document.getElementById('acao_como')?.value||'').trim();
+  const status = document.getElementById('acao_status')?.value || 'Não iniciado';
+  const prioridade = document.getElementById('acao_prioridade')?.value || 'Média';
+  const origem = document.getElementById('acao_origem')?.value || '';
+  const evidencia = (document.getElementById('acao_evidencia')?.value||'').trim();
+  const obs = (document.getElementById('acao_obs')?.value||'').trim();
+  const row = {
+    id, criacao, filial, setor, descricao:desc, porque, como,
+    responsavel:resp, previsao:prev, status, prioridade, origem, evidencia, obs,
+    micros, concluida: status==='Concluído' ? (existing&&existing.concluida)||todayISO() : null
+  };
   const idx = DATA_LOCAL.acoes.findIndex(a=>a.id===id);
   if(idx>=0) DATA_LOCAL.acoes[idx]=row; else DATA_LOCAL.acoes.unshift(row);
   saveLocalData();
@@ -4747,10 +4825,22 @@ function saveAcao(){
     const payload = {
       id: row.id, criacao:row.criacao, filial:row.filial, descricao:row.descricao,
       responsavel:row.responsavel, previsao:row.previsao, concluida:row.concluida,
-      micros: row.micros||[], updated_at: new Date().toISOString()
+      micros: row.micros||[], updated_at: new Date().toISOString(),
+      // extras em JSON (coluna meta jsonb se existir) + campos diretos se existirem
+      meta: {
+        setor:row.setor||'', porque:row.porque||'', como:row.como||'',
+        status:row.status||'', prioridade:row.prioridade||'', origem:row.origem||'',
+        evidencia:row.evidencia||'', obs:row.obs||''
+      }
     };
     sb.from('plano_acoes').upsert(payload).then(({error})=>{
-      if(error) console.warn('[MA] plano_acoes upsert', error.message);
+      if(error){
+        // tenta sem meta se a coluna não existir
+        const {meta, ...base} = payload;
+        sb.from('plano_acoes').upsert(base).then(({error:e2})=>{
+          if(e2) console.warn('[MA] plano_acoes upsert', e2.message);
+        });
+      }
     });
   }
   closeAcaoModal();
@@ -4803,6 +4893,116 @@ function acaoTiming(a){
   if(d===0) return {cls:'ontrack', txt:'Vence hoje'};
   return {cls:'ontrack', txt:d+' dia(s) restantes'};
 }
+
+function listAcoesEscopo(){
+  loadLocalData();
+  let list = (DATA_LOCAL.acoes||[]).slice();
+  if(selectedUnit) list = list.filter(a=>a.filial===selectedUnit);
+  return list;
+}
+function exportPlanoAcaoExcel(){
+  const list = listAcoesEscopo();
+  if(!list.length){ alert('Nenhuma ação para exportar.'); return; }
+  const rows = list.map((a,i)=>({
+    'Nº': i+1,
+    'Empresa / Unidade': a.filial||'',
+    'Setor / Área': a.setor||'',
+    'O que fazer': a.descricao||'',
+    'Por quê': a.porque||'',
+    'Como fazer': a.como||'',
+    'Responsável': a.responsavel||'',
+    'Prazo': a.previsao||'',
+    'Status': a.status||'',
+    'Prioridade': a.prioridade||'',
+    'Origem': a.origem||'',
+    'Evidência': a.evidencia||'',
+    'Observações': a.obs||'',
+    'Progresso %': acaoProgress(a),
+    'Data elaboração': a.criacao||''
+  }));
+  if(typeof XLSX === 'undefined'){
+    // fallback CSV
+    const headers = Object.keys(rows[0]);
+    const csv = [headers.join(';')].concat(rows.map(r=>headers.map(h=>'"'+String(r[h]??'').replace(/"/g,'""')+'"').join(';'))).join('\n');
+    const blob = new Blob(['\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'Plano_de_Acao_'+todayISO()+'.csv';
+    a.click();
+    return;
+  }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Plano de Ação');
+  XLSX.writeFile(wb, 'Plano_de_Acao_'+todayISO()+'.xlsx');
+}
+async function exportPlanoAcaoPDF(){
+  const list = listAcoesEscopo();
+  if(!list.length){ alert('Nenhuma ação para exportar.'); return; }
+  if(typeof html2pdf === 'undefined'){ alert('html2pdf indisponível'); return; }
+  const unit = selectedUnit || 'Todas as unidades';
+  const rowsHtml = list.map((a,i)=>`<tr>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px;text-align:center">${i+1}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(a.descricao||'')}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(a.porque||'')}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(a.como||'')}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(a.responsavel||'')}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px;white-space:nowrap">${fmtDateISO(a.previsao)}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(a.status||'')}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(a.evidencia||'')}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(a.obs||'')}</td>
+  </tr>`).join('');
+  const root = document.createElement('div');
+  root.style.cssText = 'width:190mm;padding:10px 8px;font-family:Arial,Helvetica,sans-serif;color:#0C1A12;background:#fff';
+  root.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0B2E1F,#1A4F36);color:#fff;padding:16px 18px;border-radius:8px 8px 0 0">
+      <div style="font-size:20px;font-weight:800;letter-spacing:.02em">PLANO DE AÇÃO</div>
+      <div style="font-size:11px;opacity:.9;margin-top:2px">SSMAQ – Saúde, Segurança, Meio Ambiente e Qualidade</div>
+      <div style="font-size:10px;margin-top:6px;opacity:.85">Escopo: ${esc(unit)} · Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+    </div>
+    <div style="height:3px;background:linear-gradient(90deg,#C9A227,#E8C547,#C9A227)"></div>
+    <table style="width:100%;border-collapse:collapse;margin-top:12px;table-layout:fixed">
+      <thead>
+        <tr style="background:#0B2E1F;color:#fff">
+          <th style="padding:6px 4px;font-size:9px;width:4%">Nº</th>
+          <th style="padding:6px 4px;font-size:9px;width:16%">O que fazer</th>
+          <th style="padding:6px 4px;font-size:9px;width:14%">Por quê</th>
+          <th style="padding:6px 4px;font-size:9px;width:14%">Como fazer</th>
+          <th style="padding:6px 4px;font-size:9px;width:11%">Responsável</th>
+          <th style="padding:6px 4px;font-size:9px;width:9%">Prazo</th>
+          <th style="padding:6px 4px;font-size:9px;width:10%">Status</th>
+          <th style="padding:6px 4px;font-size:9px;width:11%">Evidência</th>
+          <th style="padding:6px 4px;font-size:9px;width:11%">Observações</th>
+        </tr>
+      </thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>
+    <div style="margin-top:18px;font-size:10px;color:#3D4F42;page-break-inside:avoid">
+      <b>Resultados esperados:</b> redução de não conformidades · atendimento legal · melhoria contínua · fortalecimento da cultura SSMAQ.
+    </div>
+    <div style="margin-top:20px;display:flex;justify-content:space-between;page-break-inside:avoid">
+      <div style="width:45%;text-align:center;border-top:1px solid #333;padding-top:6px;font-size:10px">Responsável pela Elaboração<br>Nome / Cargo</div>
+      <div style="width:45%;text-align:center;border-top:1px solid #333;padding-top:6px;font-size:10px">Aprovação da Direção<br>Nome / Cargo</div>
+    </div>
+  `;
+  document.body.appendChild(root);
+  try{
+    await html2pdf().set({
+      margin: [10, 8, 12, 8],
+      filename: 'Plano_de_Acao_'+String(unit).replace(/[^\wÀ-ÿ\-]+/g,'_').slice(0,30)+'_'+todayISO()+'.pdf',
+      image: { type: 'jpeg', quality: 0.95 },
+      html2canvas: { scale: 2, backgroundColor: '#ffffff' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
+      pagebreak: { mode: ['css', 'legacy'], avoid: ['tr'] }
+    }).from(root).save();
+  }catch(e){
+    console.error(e);
+    alert('Falha ao gerar PDF: '+(e.message||e));
+  }finally{
+    root.remove();
+  }
+}
+
 function renderPlanoAcao(){
   loadLocalData();
   let list = DATA_LOCAL.acoes.slice();
@@ -4859,12 +5059,17 @@ function renderPlanoAcao(){
         </div>
       </div>
       <div class="ac-meta">
-        <span>📅 Criada: ${fmtDateISO(a.criacao)}</span>
+        <span>📅 ${fmtDateISO(a.criacao)}</span>
         <span>🏢 ${esc(a.filial)}</span>
+        ${a.setor?`<span>🗂️ ${esc(a.setor)}</span>`:''}
         <span>👤 ${esc(a.responsavel)}</span>
-        <span>🎯 Previsão: ${fmtDateISO(a.previsao)}</span>
+        <span>🎯 ${fmtDateISO(a.previsao)}</span>
+        <span>📌 ${esc(a.status||'—')}</span>
+        <span>⚡ ${esc(a.prioridade||'—')}</span>
         <span class="delay ${tim.cls}">${esc(tim.txt)}</span>
       </div>
+      ${a.porque?`<div style="font-size:12px;color:var(--ink-2);margin:4px 0"><b>Por quê:</b> ${esc(a.porque)}</div>`:''}
+      ${a.como?`<div style="font-size:12px;color:var(--ink-2);margin:4px 0"><b>Como:</b> ${esc(a.como)}</div>`:''}
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px">${prog}% concluído</div>
       <div class="ac-prog"><span style="width:${prog}%"></span></div>
       ${micros}
@@ -5488,8 +5693,9 @@ function buildInspecaoReportElement(d){
   normalizeInspFotos(d);
   const wrap = document.createElement('div');
   wrap.className = 'insp-pdf-root';
+  // 1cm (~10mm) de folga no topo (logo Toyota) e rodapé (logo Carmak)
   wrap.setAttribute('style',
-    'width:170mm;max-width:170mm;margin:0 auto;box-sizing:border-box;padding:4px 0 16px;'+
+    'width:170mm;max-width:170mm;margin:0 auto;box-sizing:border-box;padding:12mm 0 14mm;'+
     'background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;'+
     'overflow:visible;position:relative;text-align:left;'
   );
@@ -5499,27 +5705,31 @@ function buildInspecaoReportElement(d){
   if(!fotos.length){
     fotosHtml = '<p style="color:#555;margin:4px 0 8px;font-size:12px">Sem fotos anexadas.</p>';
   } else {
-    // 2 fotos por linha; a IMAGEM nunca é cortada (page-break-inside no bloco da imagem).
-    // A descrição pode continuar na página seguinte se for longa.
+    // Cada FOTO (imagem+legenda) em bloco inseparável.
+    // Descrição longa pode quebrar depois da imagem.
+    // 2 colunas via tabela; page-break-inside:avoid no wrap da IMAGEM.
     const cells = fotos.map((f,idx)=>{
       const src = f.dataUrl || '';
       const desc = (f.descricao||'').trim();
       const nome = (f.titulo || f.legenda || '').trim();
-      const legenda = `<div style="font-style:italic;font-size:11px;margin-top:4px;text-align:center;page-break-inside:avoid"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</div>`;
-      return `<td class="insp-photo-cell" style="width:50%;vertical-align:top;padding:0 6px 14px;box-sizing:border-box">
-        <div class="insp-photo-img-wrap" style="width:100%;height:6.0cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:1px solid #eee;page-break-inside:avoid;break-inside:avoid">
-          <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;border:0"/>
+      return `<td style="width:50%;vertical-align:top;padding:0 5px 12px;box-sizing:border-box">
+        <div class="insp-photo-block" style="page-break-inside:avoid;break-inside:avoid">
+          <div class="insp-photo-img-wrap" style="width:100%;height:5.6cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:1px solid #e5e5e5;page-break-inside:avoid;break-inside:avoid">
+            <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;border:0"/>
+          </div>
+          <div style="font-style:italic;font-size:11px;margin-top:4px;text-align:center;page-break-inside:avoid"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</div>
         </div>
-        ${legenda}
-        ${desc ? `<div style="margin-top:3px;font-size:10.5px;color:#333;text-align:left;line-height:1.35;word-wrap:break-word;overflow-wrap:break-word"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
+        ${desc ? `<div style="margin-top:3px;font-size:10.5px;color:#333;text-align:left;line-height:1.35;word-wrap:break-word;overflow-wrap:anywhere"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
       </td>`;
     });
     let rows = '';
     for(let i=0;i<cells.length;i+=2){
       const a = cells[i];
-      const b = cells[i+1] || '<td style="width:50%;padding:0 6px"></td>';
-      // linha: não força evitar quebra do texto longo; a imagem em si já está protegida
-      rows += `<table class="insp-photo-row" style="width:100%;border-collapse:collapse;table-layout:fixed;margin:0 0 4px"><tr>${a}${b}</tr></table>`;
+      const b = cells[i+1] || '<td style="width:50%;padding:0 5px"></td>';
+      // Cada linha de fotos evita quebra no MEIO das imagens
+      rows += `<div class="insp-photo-row" style="page-break-inside:avoid;break-inside:avoid;margin:0 0 6px">
+        <table style="width:100%;border-collapse:collapse;table-layout:fixed"><tr>${a}${b}</tr></table>
+      </div>`;
     }
     fotosHtml = rows;
   }
@@ -5578,14 +5788,13 @@ function buildInspecaoReportElement(d){
     <div style="page-break-before:auto;margin-top:18px">
       <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:0">CONCLUSÃO</div>
       <div style="border:1px solid #999;padding:12px 14px;min-height:60px;font-size:12px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word">${esc(d.conclusao||'—')}</div>
-      <div style="margin-top:22px;margin-bottom:32px;text-align:center;font-size:11px;color:#222;page-break-inside:avoid;break-inside:avoid">
+      <div style="margin-top:22px;margin-bottom:8px;text-align:center;font-size:11px;color:#222;page-break-inside:avoid;break-inside:avoid">
         <div style="margin-bottom:18px">${esc(d.cidade||'Cidade não informada')}, ${esc(d.data ? new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'))}</div>
         ${d.assinatura ? `<div style="height:52px;display:flex;align-items:center;justify-content:center;margin:0 auto 4px"><img src="${d.assinatura}" style="max-width:210px;max-height:50px;object-fit:contain"></div>` : '<div style="height:52px"></div>'}
         <div style="width:260px;max-width:90%;border-top:1px solid #222;margin:0 auto;padding-top:6px;font-weight:700">${esc(d.elaborador||'Nome do responsável pela elaboração')}</div>
         <div style="margin-top:3px">${esc(d.cargo||'Cargo do responsável')}</div>
       </div>
     </div>
-    <div style="height:28px"></div>
   `;
   return wrap;
 }
@@ -5644,7 +5853,8 @@ async function printInspecao(){
       throw new Error('html2pdf indisponível');
     }
     const opt = {
-      margin: [12, 14, 16, 14],
+      // margens: topo/rodapé ~18mm para logos + 1cm de folga visual
+      margin: [18, 12, 18, 12],
       filename,
       image: { type: 'jpeg', quality: 0.95 },
       html2canvas: {
@@ -5658,14 +5868,14 @@ async function printInspecao(){
         x: 0,
         y: 0,
         width: shell.scrollWidth,
-        height: Math.max(shell.scrollHeight, shell.offsetHeight) + 40,
+        height: Math.max(shell.scrollHeight, shell.offsetHeight) + 60,
         windowWidth: shell.scrollWidth,
-        windowHeight: Math.max(shell.scrollHeight, shell.offsetHeight) + 40
+        windowHeight: Math.max(shell.scrollHeight, shell.offsetHeight) + 60
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: {
         mode: ['css', 'legacy'],
-        avoid: ['.insp-photo-img-wrap', 'img']
+        avoid: ['.insp-photo-row', '.insp-photo-block', '.insp-photo-img-wrap', 'img']
       }
     };
 
@@ -5676,8 +5886,10 @@ async function printInspecao(){
     const pageH = pdf.internal.pageSize.getHeight();
     for(let i=1;i<=total;i++){
       pdf.setPage(i);
-      try{ pdf.addImage(INSP_LOGO_TOYOTA, 'PNG', 10, 5, 32, 11); }catch(_e){}
-      try{ pdf.addImage(INSP_LOGO_CARMAK, 'PNG', pageW - 38, pageH - 13, 28, 8); }catch(_e){}
+      // Logo Toyota no topo (~5mm da borda); conteúdo começa ~1cm abaixo do logo
+      try{ pdf.addImage(INSP_LOGO_TOYOTA, 'PNG', 12, 5, 30, 10); }catch(_e){}
+      // Logo Carmak no rodapé (~5mm da borda inferior)
+      try{ pdf.addImage(INSP_LOGO_CARMAK, 'PNG', pageW - 40, pageH - 12, 28, 8); }catch(_e){}
     }
     pdf.save(filename);
   }catch(err){
