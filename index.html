@@ -5489,7 +5489,7 @@ function buildInspecaoReportElement(d){
   const wrap = document.createElement('div');
   wrap.className = 'insp-pdf-root';
   wrap.setAttribute('style',
-    'width:170mm;max-width:170mm;margin:0 auto;box-sizing:border-box;padding:4px 0 10px;'+
+    'width:170mm;max-width:170mm;margin:0 auto;box-sizing:border-box;padding:4px 0 16px;'+
     'background:#ffffff;color:#111111;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;'+
     'overflow:visible;position:relative;text-align:left;'
   );
@@ -5499,55 +5499,30 @@ function buildInspecaoReportElement(d){
   if(!fotos.length){
     fotosHtml = '<p style="color:#555;margin:4px 0 8px;font-size:12px">Sem fotos anexadas.</p>';
   } else {
-    const items = fotos.map((f,idx)=>{
+    // 2 fotos por linha; a IMAGEM nunca é cortada (page-break-inside no bloco da imagem).
+    // A descrição pode continuar na página seguinte se for longa.
+    const cells = fotos.map((f,idx)=>{
       const src = f.dataUrl || '';
       const desc = (f.descricao||'').trim();
       const nome = (f.titulo || f.legenda || '').trim();
-      const legenda = `<div style="font-style:italic;font-size:11px;margin-top:4px;text-align:center"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</div>`;
-      return `<div class="insp-photo-item" style="display:inline-block;vertical-align:top;width:48%;margin:0 1% 12px;box-sizing:border-box;text-align:center;page-break-inside:avoid;break-inside:avoid">
-        <div style="width:100%;height:6.2cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:1px solid #eee">
+      const legenda = `<div style="font-style:italic;font-size:11px;margin-top:4px;text-align:center;page-break-inside:avoid"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</div>`;
+      return `<td class="insp-photo-cell" style="width:50%;vertical-align:top;padding:0 6px 14px;box-sizing:border-box">
+        <div class="insp-photo-img-wrap" style="width:100%;height:6.0cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:1px solid #eee;page-break-inside:avoid;break-inside:avoid">
           <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;border:0"/>
         </div>
         ${legenda}
-        ${desc ? `<div style="margin-top:2px;font-size:10.5px;color:#333;text-align:left;line-height:1.3;word-wrap:break-word"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
-      </div>`;
+        ${desc ? `<div style="margin-top:3px;font-size:10.5px;color:#333;text-align:left;line-height:1.35;word-wrap:break-word;overflow-wrap:break-word"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
+      </td>`;
     });
     let rows = '';
-    for(let i=0;i<items.length;i+=2){
-      const a = items[i];
-      const b = items[i+1] || '<div style="display:inline-block;width:48%;margin:0 1%"></div>';
-      rows += `<div class="insp-photo-row" style="width:100%;overflow:hidden;page-break-inside:avoid;break-inside:avoid;margin:0 0 6px">${a}${b}</div>`;
+    for(let i=0;i<cells.length;i+=2){
+      const a = cells[i];
+      const b = cells[i+1] || '<td style="width:50%;padding:0 6px"></td>';
+      // linha: não força evitar quebra do texto longo; a imagem em si já está protegida
+      rows += `<table class="insp-photo-row" style="width:100%;border-collapse:collapse;table-layout:fixed;margin:0 0 4px"><tr>${a}${b}</tr></table>`;
     }
     fotosHtml = rows;
   }
-  const adeqFromFotos = fotos.map((f,i)=>{
-    const fig = figTitle(f, i);
-    const desc = (f.descricao||'').trim() || '—';
-    return `<tr>
-      <td style="border:1px solid #999;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;width:34%;vertical-align:top;word-wrap:break-word">${esc(fig)}</td>
-      <td style="border:1px solid #999;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;vertical-align:top;word-wrap:break-word">${esc(desc)}</td>
-    </tr>`;
-  }).join('');
-  const adeqExtra = (d.adequacoes||[]).map(line=>{
-    const parts = String(line).split(/—|–/).map(s=>s.trim());
-    const fig = parts[0]||line;
-    const desc = parts.slice(1).join(' — ')||'';
-    return `<tr>
-      <td style="border:1px solid #999;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;width:34%;vertical-align:top;word-wrap:break-word">${esc(fig)}</td>
-      <td style="border:1px solid #999;padding:8px;font-family:Arial,Helvetica,sans-serif;font-size:12px;vertical-align:top;word-wrap:break-word">${esc(desc||line)}</td>
-    </tr>`;
-  }).join('');
-  const adeqRows = (adeqFromFotos + adeqExtra) ||
-    `<tr><td colspan="2" style="border:1px solid #999;padding:8px;font-size:11px">Nenhuma adequação registrada.</td></tr>`;
-
-  const mesAno = (()=>{
-    try{
-      const dt = d.data ? new Date(d.data+'T12:00:00') : new Date();
-      const mes = dt.toLocaleDateString('pt-BR',{month:'long',year:'numeric'});
-      const city = (d.filial||'').split(/[-–—]/)[0].trim() || d.filial || '';
-      return (city ? city+', ' : '') + mes;
-    }catch(_e){ return d.filial||''; }
-  })();
 
   wrap.innerHTML = `
     <div style="background:#EB0A1E;color:#fff;text-align:center;font-weight:800;font-size:15px;padding:10px 12px;margin:0;letter-spacing:.03em;page-break-inside:avoid;font-family:Arial,Helvetica,sans-serif">
@@ -5600,28 +5575,17 @@ function buildInspecaoReportElement(d){
     <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:8px 0 5px">FOTOS RELATÓRIO</div>
     ${fotosHtml}
 
-    <div style="page-break-inside:avoid;margin-top:8px">
-      <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px">ADEQUAÇÕES IDENTIFICADAS</div>
-      <table style="width:100%;border-collapse:collapse;margin-bottom:14px">
-        <tr>
-          <th style="background:#EB0A1E;color:#fff;text-align:left;padding:7px 10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;width:34%;border:1px solid #b00000">Figuras</th>
-          <th style="background:#EB0A1E;color:#fff;text-align:left;padding:7px 10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;border:1px solid #b00000">Descrição</th>
-        </tr>
-        ${adeqRows}
-      </table>
-    </div>
-
-    <div style="page-break-before:auto;margin-top:16px">
+    <div style="page-break-before:auto;margin-top:18px">
       <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:0">CONCLUSÃO</div>
       <div style="border:1px solid #999;padding:12px 14px;min-height:60px;font-size:12px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word">${esc(d.conclusao||'—')}</div>
-      <div style="margin-top:20px;margin-bottom:28px;text-align:center;font-size:11px;color:#222;page-break-inside:avoid;break-inside:avoid">
+      <div style="margin-top:22px;margin-bottom:32px;text-align:center;font-size:11px;color:#222;page-break-inside:avoid;break-inside:avoid">
         <div style="margin-bottom:18px">${esc(d.cidade||'Cidade não informada')}, ${esc(d.data ? new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'))}</div>
         ${d.assinatura ? `<div style="height:52px;display:flex;align-items:center;justify-content:center;margin:0 auto 4px"><img src="${d.assinatura}" style="max-width:210px;max-height:50px;object-fit:contain"></div>` : '<div style="height:52px"></div>'}
         <div style="width:260px;max-width:90%;border-top:1px solid #222;margin:0 auto;padding-top:6px;font-weight:700">${esc(d.elaborador||'Nome do responsável pela elaboração')}</div>
         <div style="margin-top:3px">${esc(d.cargo||'Cargo do responsável')}</div>
       </div>
     </div>
-    <div style="height:24px"></div>
+    <div style="height:28px"></div>
   `;
   return wrap;
 }
@@ -5701,7 +5665,7 @@ async function printInspecao(){
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: {
         mode: ['css', 'legacy'],
-        avoid: ['.insp-photo-row', '.insp-photo-item', 'img']
+        avoid: ['.insp-photo-img-wrap', 'img']
       }
     };
 
