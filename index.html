@@ -1675,6 +1675,7 @@ let calSelectedDate = null;
 let DATA_LOCAL = { acoes: [], lembretes: [], inspecoes: [], docsFornecedores: [], movimentacoes: {}, atividades: {} };
 let isAdmin = false;
 const ATIV_STATUS = ['Não iniciado','Em andamento','Concluído','Cancelado','Atrasado'];
+let planoAcaoEditingId = null; // id da ação em edição (detalhe com atividades)
 
 
 function clearFilters(){
@@ -5067,40 +5068,8 @@ function statusBadgeAtiv(st){
   else if(s==='Cancelado') cls = 'off';
   return `<span class="badge ${cls}">${esc(s)}</span>`;
 }
-function renderAtividadesBlock(a){
-  const ats = listAtividadesAcao(a.id).sort((x,y)=>String(x.data_limite||'').localeCompare(String(y.data_limite||'')));
-  const rows = ats.map(t=>{
-    const nEv = (t.evidencias||[]).length;
-    return `<tr data-ativ-id="${t.id}">
-      <td style="font-size:12px">${esc(a.filial||'—')}</td>
-      <td style="font-size:12px;font-weight:600">${esc(t.descricao||'')}</td>
-      <td style="font-size:12px;white-space:nowrap">${fmtDateISO(t.data_limite)}</td>
-      <td style="font-size:12px">${statusBadgeAtiv(t.status)}${nEv?` <span title="${nEv} evidência(s)">📎${nEv}</span>`:''}</td>
-      <td style="white-space:nowrap">
-        ${isAdmin?`<button type="button" class="btn-ma ghost" style="padding:4px 8px;font-size:11px" onclick="toggleAtivEditor('${a.id}','${t.id}')">Editar</button>
-        <button type="button" class="btn-ma danger" style="padding:4px 8px;font-size:11px" onclick="deleteAtividade('${a.id}','${t.id}')">Excluir</button>`:'—'}
-      </td>
-    </tr>
-    <tr id="ativ-edit-${t.id}" style="display:none"><td colspan="5">${buildAtivFormHtml(a, t)}</td></tr>`;
-  }).join('') || `<tr><td colspan="5" style="font-size:12px;color:var(--muted);padding:10px">Nenhuma atividade cadastrada.</td></tr>`;
-  const formNova = isAdmin ? `
-    <div class="timeline-compose admin-only" style="display:block;margin-top:10px" id="ativ-nova-wrap-${a.id}">
-      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">+ Nova atividade</div>
-      ${buildAtivFormHtml(a, null)}
-    </div>` : '';
-  return `
-    <div class="timeline" style="margin-top:10px">
-      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">Atividades da ação</div>
-      <div class="table-wrap" style="max-height:none">
-        <table class="data" style="font-size:12px">
-          <thead><tr>
-            <th>Filial</th><th>Descrição</th><th>Prazo</th><th>Status</th><th style="width:140px">Ações</th>
-          </tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      ${formNova}
-    </div>`;
+function statusBadgeAcao(st){
+  return statusBadgeAtiv(st||'Não iniciado');
 }
 function buildAtivFormHtml(acao, ativ){
   const id = ativ ? ativ.id : 'new_'+acao.id;
@@ -5138,6 +5107,52 @@ function toggleAtivEditor(acaoId, ativId){
   if(!el) return;
   el.style.display = el.style.display==='none' ? 'table-row' : 'none';
 }
+function openAcaoDetalhe(id){
+  planoAcaoEditingId = id;
+  renderPlanoAcao();
+  const el = document.getElementById('acao-detalhe');
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function fecharAcaoDetalhe(){
+  planoAcaoEditingId = null;
+  renderPlanoAcao();
+}
+function renderAtividadesBlock(a){
+  const ats = listAtividadesAcao(a.id).sort((x,y)=>String(x.data_limite||'').localeCompare(String(y.data_limite||'')));
+  const rows = ats.map(t=>{
+    const nEv = (t.evidencias||[]).length;
+    return `<tr data-ativ-id="${t.id}">
+      <td style="font-size:12px;font-weight:600">${esc(t.descricao||'')}</td>
+      <td style="font-size:12px">${esc(t.responsavel||'—')}</td>
+      <td style="font-size:12px;white-space:nowrap">${fmtDateISO(t.data_limite)}</td>
+      <td style="font-size:12px">${statusBadgeAtiv(t.status)}${nEv?` <span title="${nEv} evidência(s)">📎${nEv}</span>`:''}</td>
+      <td style="white-space:nowrap">
+        ${isAdmin?`<button type="button" class="btn-ma ghost" style="padding:4px 8px;font-size:11px" onclick="toggleAtivEditor('${a.id}','${t.id}')">Editar</button>
+        <button type="button" class="btn-ma danger" style="padding:4px 8px;font-size:11px" onclick="deleteAtividade('${a.id}','${t.id}')">Excluir</button>`:'—'}
+      </td>
+    </tr>
+    <tr id="ativ-edit-${t.id}" style="display:none"><td colspan="5">${buildAtivFormHtml(a, t)}</td></tr>`;
+  }).join('') || `<tr><td colspan="5" style="font-size:12px;color:var(--muted);padding:10px">Nenhuma atividade cadastrada nesta ação.</td></tr>`;
+  const formNova = isAdmin ? `
+    <div class="timeline-compose admin-only" style="display:block;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--tint-2)" id="ativ-nova-wrap-${a.id}">
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">+ Nova atividade nesta ação</div>
+      <p class="panel-sub" style="margin:0 0 8px">Cada atividade pode ter responsável e prazo próprios.</p>
+      ${buildAtivFormHtml(a, null)}
+    </div>` : '';
+  return `
+    <div class="timeline" style="margin-top:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">Atividades da ação (${ats.length})</div>
+      <div class="table-wrap" style="max-height:none">
+        <table class="data" style="font-size:12px">
+          <thead><tr>
+            <th>Descrição</th><th>Responsável</th><th>Prazo</th><th>Status</th><th style="width:140px">Ações</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${formNova}
+    </div>`;
+}
 function renderPlanoAcao(){
   loadLocalData();
   let list = DATA_LOCAL.acoes.slice();
@@ -5156,34 +5171,78 @@ function renderPlanoAcao(){
     root.innerHTML = '<div class="empty-state">Nenhuma ação cadastrada. Clique em “+ Nova ação”.</div>';
     return;
   }
-  root.innerHTML = list.map(a=>{
-    const prog = acaoProgress(a);
+
+  // Detalhe de uma ação (editar / gerenciar atividades)
+  if(planoAcaoEditingId){
+    const a = list.find(x=>x.id===planoAcaoEditingId) || (DATA_LOCAL.acoes||[]).find(x=>x.id===planoAcaoEditingId);
+    if(!a){
+      planoAcaoEditingId = null;
+    } else {
+      const prog = acaoProgress(a);
+      const tim = acaoTiming(a);
+      root.innerHTML = `
+        <div id="acao-detalhe" class="action-card" style="margin-bottom:14px">
+          <div class="ac-head">
+            <div>
+              <button type="button" class="btn-ma ghost" style="padding:6px 10px;font-size:11px;margin-bottom:8px" onclick="fecharAcaoDetalhe()">← Voltar à listagem</button>
+              <div class="ac-title">${esc(a.descricao)}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              <button type="button" class="btn-ma ghost admin-only-inline" style="padding:6px 10px;font-size:11px" onclick="openAcaoById('${a.id}')">Editar dados da ação</button>
+              <button type="button" class="btn-ma danger admin-only-inline" style="padding:6px 10px;font-size:11px" onclick="deleteAcao('${a.id}');fecharAcaoDetalhe()">Excluir ação</button>
+            </div>
+          </div>
+          <div class="ac-meta">
+            <span>🏢 ${esc(a.filial)}</span>
+            <span>📅 Criação: ${fmtDateISO(a.criacao)}</span>
+            <span>🎯 Prazo: ${fmtDateISO(a.previsao)}</span>
+            <span>📌 ${statusBadgeAcao(a.status)}</span>
+            <span>👤 ${esc(a.responsavel||'—')}</span>
+            <span class="delay ${tim.cls}">${esc(tim.txt)}</span>
+          </div>
+          ${a.porque?`<div style="font-size:12px;color:var(--ink-2);margin:4px 0"><b>Por quê:</b> ${esc(a.porque)}</div>`:''}
+          ${a.como?`<div style="font-size:12px;color:var(--ink-2);margin:4px 0"><b>Como:</b> ${esc(a.como)}</div>`:''}
+          <div style="font-size:12px;font-weight:700;color:var(--navy);margin:8px 0 4px">${prog}% concluído (pelas atividades)</div>
+          <div class="ac-prog"><span style="width:${prog}%"></span></div>
+          ${renderAtividadesBlock(a)}
+        </div>`;
+      return;
+    }
+  }
+
+  // Listagem compacta: Filial | Nome | Data criação | Prazo | Status
+  const rows = list.map(a=>{
     const tim = acaoTiming(a);
-    return `<div class="action-card" id="acao-card-${a.id}">
-      <div class="ac-head">
-        <div class="ac-title">${esc(a.descricao)}</div>
-        <div style="display:flex;gap:6px">
-          <button type="button" class="btn-ma ghost admin-only-inline" style="padding:6px 10px;font-size:11px" onclick="openAcaoById('${a.id}')">Editar</button>
-          <button type="button" class="btn-ma danger admin-only-inline" style="padding:6px 10px;font-size:11px" onclick="deleteAcao('${a.id}')">Excluir</button>
-        </div>
-      </div>
-      <div class="ac-meta">
-        <span>📅 ${fmtDateISO(a.criacao)}</span>
-        <span>🏢 ${esc(a.filial)}</span>
-        ${a.setor?`<span>🗂️ ${esc(a.setor)}</span>`:''}
-        <span>👤 ${esc(a.responsavel)}</span>
-        <span>🎯 ${fmtDateISO(a.previsao)}</span>
-        <span>📌 ${esc(a.status||'—')}</span>
-        <span>⚡ ${esc(a.prioridade||'—')}</span>
-        <span class="delay ${tim.cls}">${esc(tim.txt)}</span>
-      </div>
-      ${a.porque?`<div style="font-size:12px;color:var(--ink-2);margin:4px 0"><b>Por quê:</b> ${esc(a.porque)}</div>`:''}
-      ${a.como?`<div style="font-size:12px;color:var(--ink-2);margin:4px 0"><b>Como:</b> ${esc(a.como)}</div>`:''}
-      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px">${prog}% concluído</div>
-      <div class="ac-prog"><span style="width:${prog}%"></span></div>
-      ${renderAtividadesBlock(a)}
-    </div>`;
+    const nAt = listAtividadesAcao(a.id).length;
+    return `<tr>
+      <td style="font-size:12.5px">${esc(a.filial||'—')}</td>
+      <td style="font-size:12.5px;font-weight:600">${esc(a.descricao||'')}${nAt?` <span style="font-weight:500;color:var(--muted);font-size:11px">(${nAt} ativ.)</span>`:''}</td>
+      <td style="font-size:12px;white-space:nowrap">${fmtDateISO(a.criacao)}</td>
+      <td style="font-size:12px;white-space:nowrap">${fmtDateISO(a.previsao)} <span class="delay ${tim.cls}" style="margin-left:4px">${esc(tim.txt)}</span></td>
+      <td style="font-size:12px">${statusBadgeAcao(a.status)}</td>
+      <td style="white-space:nowrap">
+        <button type="button" class="btn-ma primary" style="padding:5px 10px;font-size:11px" onclick="openAcaoDetalhe('${a.id}')">Editar</button>
+        <button type="button" class="btn-ma danger admin-only-inline" style="padding:5px 10px;font-size:11px" onclick="deleteAcao('${a.id}')">Excluir</button>
+      </td>
+    </tr>`;
   }).join('');
+
+  root.innerHTML = `
+    <div class="panel" style="padding:0;overflow:hidden">
+      <div class="table-wrap" style="max-height:none;border:none;border-radius:0">
+        <table class="data">
+          <thead><tr>
+            <th>Filial</th>
+            <th>Nome da ação</th>
+            <th>Data de criação</th>
+            <th>Prazo</th>
+            <th>Status</th>
+            <th style="width:150px">Ações</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
 }
 async function loadAtividadesForAcoes(){
   if(!sb || !currentUser) return;
@@ -5356,7 +5415,11 @@ async function saveAtividade(acaoId, ativId){
     renderPlanoAcao();
   }catch(e){
     console.error(e);
-    alert('Erro ao salvar atividade: '+(e.message||e));
+    let msg = e.message||String(e);
+    if(/row-level security|RLS/i.test(msg)){
+      msg += '\n\nCorrija as policies no Supabase (SQL enviado) para permitir INSERT em plano_acao_atividades.';
+    }
+    alert('Erro ao salvar atividade: '+msg);
   }
 }
 async function deleteAtividade(acaoId, ativId){
