@@ -625,34 +625,50 @@ body.on-guia{
 .modal-bg.on{display:flex}
 .modal-box{
   width:100%; max-width:560px; max-height:min(90vh,720px); overflow:auto;
-  background:var(--card); border-radius:16px; border:1px solid var(--line);
+  background:var(--card); border-radius:20px; border:1px solid var(--line);
   box-shadow:0 24px 64px rgba(0,0,0,.25); color:var(--ink);
 }
 .modal-box .mh{
-  padding:16px 20px; border-bottom:1px solid var(--line);
+  padding:18px 22px; border-bottom:2px solid var(--gold-soft);
   font-family:'Space Grotesk',sans-serif; font-size:16px; font-weight:700; color:var(--navy);
   display:flex; align-items:center; justify-content:space-between; gap:12px;
+  background:linear-gradient(180deg,var(--tint-2),#fff);
+  border-radius:20px 20px 0 0;
 }
 .modal-box .mh button{
-  appearance:none; border:none; background:var(--tint); width:32px; height:32px;
-  border-radius:8px; cursor:pointer; font-size:16px; color:var(--ink-2);
+  appearance:none; border:none; background:var(--tint); width:34px; height:34px;
+  border-radius:12px; cursor:pointer; font-size:16px; color:var(--ink-2);
 }
-.modal-box .mb{padding:16px 20px; display:flex; flex-direction:column; gap:12px}
-.modal-box .mf{display:flex; flex-direction:column; gap:4px}
-.modal-box .mf label{font-size:10px; text-transform:uppercase; letter-spacing:.04em; font-weight:700; color:var(--muted)}
+.modal-box .mb{padding:20px 22px; display:flex; flex-direction:column; gap:16px}
+.modal-box .mf{display:flex; flex-direction:column; gap:6px}
+.modal-box .mf label{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; font-weight:700; color:var(--teal)}
 .modal-box .mf input, .modal-box .mf select, .modal-box .mf textarea{
-  padding:9px 11px; border:1px solid var(--line-2); border-radius:8px; font-size:13px; background:#fff; color:var(--ink);
+  padding:12px 14px; border:1.5px solid var(--line-2); border-radius:14px; font-size:13.5px;
+  background:linear-gradient(180deg,#fff 0%, var(--tint-2) 100%); color:var(--ink);
+  transition:border-color .15s, box-shadow .15s, background .15s;
 }
-.modal-box .mf textarea{min-height:72px; resize:vertical}
-.modal-box .grid2m{display:grid; grid-template-columns:1fr 1fr; gap:12px}
-@media(max-width:560px){.modal-box .grid2m{grid-template-columns:1fr}}
+.modal-box .mf input:focus, .modal-box .mf select:focus, .modal-box .mf textarea:focus{
+  outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.22);
+  background:#fff;
+}
+.modal-box .mf textarea{min-height:80px; resize:vertical}
+.grid2m{display:grid; grid-template-columns:1fr 1fr; gap:14px}
+.modal-box .grid2m{gap:14px}
+@media(max-width:560px){.grid2m, .modal-box .grid2m{grid-template-columns:1fr}}
 .modal-box .ma{
-  padding:12px 20px 16px; border-top:1px solid var(--line);
+  padding:14px 22px 18px; border-top:1px solid var(--line);
   display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
+  background:var(--tint-2); border-radius:0 0 20px 20px;
 }
 .btn-ma{
-  appearance:none; border:none; border-radius:10px; padding:10px 16px;
+  appearance:none; border:none; border-radius:12px; padding:11px 18px;
   font-size:13px; font-weight:700; cursor:pointer;
+  box-shadow:0 2px 8px rgba(11,46,31,.08);
+}
+tr[id^="ativ-edit-"] td{
+  background:linear-gradient(165deg, var(--tint-2) 0%, #fff 50%, var(--gold-soft) 160%) !important;
+  padding:16px 14px !important;
+  border-bottom:2px solid var(--gold-soft) !important;
 }
 .btn-ma.primary{background:linear-gradient(135deg,var(--navy),var(--teal)); color:#fff}
 .btn-ma.gold{background:linear-gradient(135deg,var(--gold),var(--gold-2)); color:var(--navy)}
@@ -806,12 +822,17 @@ body.on-guia{
 .action-card .delay.ontrack{color:var(--warn)}
 .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-top:10px}
 .photo-card{
-  border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;position:relative;
+  border:1.5px solid var(--line);border-radius:16px;overflow:hidden;background:#fff;position:relative;
+  box-shadow:0 2px 10px rgba(11,46,31,.06);
 }
 .photo-card img{width:100%;height:140px;object-fit:cover;display:block;background:var(--tint)}
-.photo-card .pc-body{padding:8px 10px}
+.photo-card .pc-body{padding:10px 12px}
 .photo-card .pc-body input,.photo-card .pc-body textarea{
-  width:100%;border:1px solid var(--line-2);border-radius:6px;padding:6px 8px;font-size:12px;margin-top:4px;
+  width:100%;border:1.5px solid var(--line-2);border-radius:10px;padding:8px 10px;font-size:12px;margin-top:4px;
+  background:linear-gradient(180deg,#fff,var(--tint-2));
+}
+.photo-card .pc-body input:focus,.photo-card .pc-body textarea:focus{
+  outline:none;border-color:var(--gold);box-shadow:0 0 0 2px rgba(201,162,39,.2);background:#fff;
 }
 .photo-card .pc-fig-label{
   font-size:12px;font-weight:800;color:var(--navy);margin-bottom:6px;
@@ -835,17 +856,30 @@ body.on-guia{
   width:26px;height:26px;border-radius:8px;cursor:pointer;font-size:14px;
 }
 .upload-zone{
-  border:2px dashed var(--line-2);border-radius:14px;padding:28px;text-align:center;
-  background:var(--tint-2);cursor:pointer;transition:border-color .15s;
+  border:2px dashed var(--aqua-2);border-radius:16px;padding:28px;text-align:center;
+  background:linear-gradient(180deg, var(--tint-2), #fff);cursor:pointer;
+  transition:border-color .15s, box-shadow .15s;
 }
-.upload-zone:hover{border-color:var(--gold)}
+.upload-zone:hover{border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.15)}
 .upload-zone input{display:none}
-.insp-form .mf{margin-bottom:10px}
-.insp-form label{font-size:10px;text-transform:uppercase;letter-spacing:.04em;font-weight:700;color:var(--muted);display:block;margin-bottom:4px}
-.insp-form input,.insp-form select,.insp-form textarea{
-  width:100%;padding:9px 11px;border:1px solid var(--line-2);border-radius:8px;font-size:13px;background:#fff;
+.insp-form{
+  display:flex; flex-direction:column; gap:16px;
+  padding:18px 18px 8px; border-radius:18px;
+  background:linear-gradient(165deg, var(--tint-2) 0%, #fff 40%, var(--gold-soft) 160%);
+  border:1px solid var(--line); box-shadow:var(--shadow);
 }
-.insp-form textarea{min-height:70px;resize:vertical}
+.insp-form .mf{margin-bottom:0; display:flex; flex-direction:column; gap:6px}
+.insp-form label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--teal);display:block;margin-bottom:0}
+.insp-form input,.insp-form select,.insp-form textarea{
+  width:100%;padding:12px 14px;border:1.5px solid var(--line-2);border-radius:14px;font-size:13.5px;
+  background:linear-gradient(180deg,#fff 0%, var(--tint-2) 100%); color:var(--ink);
+  transition:border-color .15s, box-shadow .15s, background .15s;
+}
+.insp-form input:focus,.insp-form select:focus,.insp-form textarea:focus{
+  outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.22); background:#fff;
+}
+.insp-form textarea{min-height:80px;resize:vertical}
+.insp-form .section-label{margin-top:6px}
 .insp-list-item{
   display:flex;justify-content:space-between;align-items:center;gap:12px;
   padding:12px 14px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px;background:#fff;
@@ -934,8 +968,29 @@ th.th-filter .th-btn.has{background:var(--gold);color:var(--navy);border-color:v
 .timeline-item .tl-text{font-size:12.5px;margin:4px 0;color:var(--ink)}
 .timeline-item .tl-file{font-size:11.5px}
 .timeline-item .tl-file a{color:var(--teal);font-weight:600}
-.timeline-compose{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px;background:#fff}
-.timeline-compose textarea{width:100%;min-height:64px;border:1px solid var(--line-2);border-radius:8px;padding:8px;font-size:13px}
+.timeline-compose{
+  border:1.5px solid var(--line-2); border-radius:18px; padding:18px 18px 14px; margin-top:12px;
+  background:linear-gradient(165deg, var(--tint-2) 0%, #fff 45%, var(--gold-soft) 160%);
+  box-shadow:var(--shadow);
+}
+.timeline-compose textarea{width:100%;min-height:72px;border:1.5px solid var(--line-2);border-radius:14px;padding:12px 14px;font-size:13.5px;background:linear-gradient(180deg,#fff,var(--tint-2))}
+.ativ-form-rich{display:flex;flex-direction:column;gap:14px}
+.ativ-form-rich .mf{display:flex;flex-direction:column;gap:6px}
+.ativ-form-rich .mf label{font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;font-weight:700;color:var(--teal)}
+.ativ-form-rich .mf input,
+.ativ-form-rich .mf select,
+.ativ-form-rich .mf textarea{
+  width:100%; padding:12px 14px; border:1.5px solid var(--line-2); border-radius:14px; font-size:13.5px;
+  background:linear-gradient(180deg,#fff 0%, var(--tint-2) 100%); color:var(--ink);
+  transition:border-color .15s, box-shadow .15s, background .15s; box-sizing:border-box;
+}
+.ativ-form-rich .mf input:focus,
+.ativ-form-rich .mf select:focus,
+.ativ-form-rich .mf textarea:focus{
+  outline:none; border-color:var(--gold); box-shadow:0 0 0 3px rgba(201,162,39,.22); background:#fff;
+}
+.ativ-form-rich .mf textarea{min-height:72px; resize:vertical}
+.ativ-form-rich .grid2m{gap:14px}
 .admin-only{display:none}
 body.is-admin .admin-only{display:block}
 body:not(.is-admin) .admin-only-inline{display:none !important}
@@ -5245,29 +5300,29 @@ function buildAtivFormHtml(acao, ativ){
       ${isAdmin?`<button type="button" class="btn-ma danger" style="padding:2px 6px;font-size:10px" onclick="removeAtivEvidencia('${acao.id}','${ativ.id}',${i})">×</button>`:''}
     </div>`).join('') || '<div style="font-size:11px;color:var(--muted)">Nenhuma evidência</div>';
   return `
-    <div class="grid2m" style="margin-top:6px">
-      <div class="mf"><label>Descrição *</label><textarea id="ativ_desc_${id}" rows="2">${esc(ativ?ativ.descricao||'':'')}</textarea></div>
-      <div class="mf"><label>Responsável *</label><input id="ativ_resp_${id}" value="${esc(ativ?ativ.responsavel||acao.responsavel||'':'')}"></div>
-    </div>
-    <div class="grid2m">
-      <div class="mf"><label>Data de criação *</label><input type="date" id="ativ_criacao_${id}" value="${esc(ativ?ativ.data_criacao||todayISO():todayISO())}"></div>
-      <div class="mf"><label>Data limite *</label><input type="date" id="ativ_limite_${id}" value="${esc(ativ?ativ.data_limite||'':'')}"></div>
-    </div>
-    <div class="grid2m">
-      <div class="mf"><label>Status *</label><select id="ativ_status_${id}">${stOpts}</select></div>
-      <div class="mf"><label>Data de conclusão</label><input type="date" id="ativ_conclusao_${id}" value="${esc(ativ?ativ.data_conclusao||'':'')}"></div>
-    </div>
-    <div class="grid2m">
+    <div class="ativ-form-rich">
+      <div class="mf"><label>Descrição *</label><textarea id="ativ_desc_${id}" rows="2" placeholder="Descreva a atividade">${esc(ativ?ativ.descricao||'':'')}</textarea></div>
+      <div class="grid2m">
+        <div class="mf"><label>Responsável *</label><input id="ativ_resp_${id}" value="${esc(ativ?ativ.responsavel||acao.responsavel||'':'')}"></div>
+        <div class="mf"><label>Status *</label><select id="ativ_status_${id}">${stOpts}</select></div>
+      </div>
+      <div class="grid2m">
+        <div class="mf"><label>Data de criação *</label><input type="date" id="ativ_criacao_${id}" value="${esc(ativ?ativ.data_criacao||todayISO():todayISO())}"></div>
+        <div class="mf"><label>Data limite *</label><input type="date" id="ativ_limite_${id}" value="${esc(ativ?ativ.data_limite||'':'')}"></div>
+      </div>
+      <div class="grid2m">
+        <div class="mf"><label>Data de conclusão</label><input type="date" id="ativ_conclusao_${id}" value="${esc(ativ?ativ.data_conclusao||'':'')}"></div>
+        <div class="mf"><label>Data da observação</label><input type="date" id="ativ_obs_data_${id}" value="${esc(ativ?ativ.data_observacao||'':'')}"></div>
+      </div>
       <div class="mf"><label>Observação</label><textarea id="ativ_obs_${id}" rows="2" placeholder="Anotações / andamento">${esc(ativ?ativ.observacao||'':'')}</textarea></div>
-      <div class="mf"><label>Data da observação</label><input type="date" id="ativ_obs_data_${id}" value="${esc(ativ?ativ.data_observacao||'':'')}"></div>
-    </div>
-    <div class="mf"><label>Evidências (PDF ou imagem)</label>
-      <input type="file" id="ativ_files_${id}" accept="application/pdf,image/*,.pdf" multiple style="font-size:12px">
-      <div id="ativ_evid_list_${id}" style="margin-top:4px">${evidList}</div>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button type="button" class="btn-ma gold" onclick="saveAtividade('${acao.id}','${isNew?'':ativ.id}')">${isNew?'Registrar atividade':'Salvar atividade'}</button>
-      ${!isNew?`<button type="button" class="btn-ma ghost" onclick="toggleAtivEditor('${acao.id}','${ativ.id}')">Cancelar</button>`:''}
+      <div class="mf"><label>Evidências (PDF ou imagem)</label>
+        <input type="file" id="ativ_files_${id}" accept="application/pdf,image/*,.pdf" multiple style="font-size:12px;padding:10px 12px">
+        <div id="ativ_evid_list_${id}" style="margin-top:6px">${evidList}</div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px;flex-wrap:wrap">
+        <button type="button" class="btn-ma gold" onclick="saveAtividade('${acao.id}','${isNew?'':ativ.id}')">${isNew?'Registrar atividade':'Salvar atividade'}</button>
+        ${!isNew?`<button type="button" class="btn-ma ghost" onclick="toggleAtivEditor('${acao.id}','${ativ.id}')">Cancelar</button>`:''}
+      </div>
     </div>`;
 }
 function toggleAtivEditor(acaoId, ativId){
@@ -5333,9 +5388,9 @@ function renderAtividadesBlock(a){
     <tr id="ativ-edit-${t.id}" style="display:none"><td colspan="5">${buildAtivFormHtml(a, t)}</td></tr>`;
   }).join('') || `<tr><td colspan="5" style="font-size:12px;color:var(--muted);padding:10px">Nenhuma atividade${(cache.desc||cache.resp||cache.prazo||cache.status)?' com este filtro':''}.</td></tr>`;
   const formNova = isAdmin ? `
-    <div class="timeline-compose admin-only" style="display:block;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--tint-2)" id="ativ-nova-wrap-${a.id}">
-      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">+ Nova atividade nesta ação</div>
-      <p class="panel-sub" style="margin:0 0 8px">Cada atividade pode ter responsável, prazo e observação próprios.</p>
+    <div class="timeline-compose admin-only" style="display:block" id="ativ-nova-wrap-${a.id}">
+      <div style="font-size:14px;font-weight:700;color:var(--navy);margin-bottom:4px;font-family:'Space Grotesk',sans-serif">+ Nova atividade nesta ação</div>
+      <p class="panel-sub" style="margin:0 0 14px">Cada atividade pode ter responsável, prazo e observação próprios.</p>
       ${buildAtivFormHtml(a, null)}
     </div>` : '';
   return `
@@ -6187,11 +6242,7 @@ function renderInspForm(){
       <div class="mf"><label>Cidade de elaboração do relatório</label><input id="insp_cidade" value="${esc(d.cidade||'')}" placeholder="Ex.: Sapucaia do Sul/RS"></div>
       <div class="mf"><label>Nome do responsável pela elaboração</label><input id="insp_elaborador" value="${esc(d.elaborador||'')}"></div>
     </div>
-    <div class="grid2m">
-      <div class="mf"><label>Cargo do elaborador</label><input id="insp_cargo" value="${esc(d.cargo||'')}" placeholder="Ex.: Analista de Meio Ambiente"></div>
-      <div class="mf"><label>Imagem da assinatura (opcional)</label><input type="file" id="insp_assinatura_file" accept="image/*" onchange="handleInspSignature(event)" style="width:100%;padding:7px;border:1px solid var(--line-2);border-radius:8px;background:#fff">
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">${d.assinatura ? 'Imagem de assinatura adicionada.' : 'Também será possível assinar manualmente após imprimir.'}</div></div>
-    </div>
+    <div class="mf"><label>Cargo do elaborador</label><input id="insp_cargo" value="${esc(d.cargo||'')}" placeholder="Ex.: Analista de Meio Ambiente"></div>
     <div class="section-label">Dados Gerais</div>
     <div class="mf"><label>Objetivo</label><textarea id="insp_objetivo">${esc(d.objetivo||'')}</textarea></div>
     <div class="mf"><label>Serviço realizado</label><textarea id="insp_servico">${esc(d.servico||'')}</textarea></div>
