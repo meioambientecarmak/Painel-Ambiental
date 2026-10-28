@@ -1019,6 +1019,12 @@ body:not(.is-admin) .admin-only-inline{display:none !important}
     <button type="button" class="nav" data-mod="planoacao" onclick="pickModule('planoacao')"><span class="ic">✓</span> Plano de Ação</button>
     <button type="button" class="nav" data-mod="inspecoes" onclick="pickModule('inspecoes')"><span class="ic">📷</span> Inspeções Técnicas</button>
     <button type="button" class="nav" data-mod="cronograma" onclick="pickModule('cronograma')"><span class="ic">📅</span> Cronograma</button>
+      <button type="button" class="guia-card" onclick="pickModule('treinamentos')">
+        <div class="gc-ic">🎓</div>
+        <h3>Treinamentos/DDS</h3>
+        <p>Registros de treinamentos e diálogos de segurança com fotos e PDFs</p>
+      </button>
+    <button type="button" class="nav" data-mod="treinamentos" onclick="pickModule('treinamentos')"><span class="ic">🎓</span> Treinamentos/DDS</button>
   </div>
   <div class="side-foot">
     <div style="margin-bottom:8px">Painel gerencial · ISO 14001</div>
@@ -1325,6 +1331,23 @@ body:not(.is-admin) .admin-only-inline{display:none !important}
 
 
 
+
+
+  <!-- TREINAMENTOS / DDS -->
+  <div class="view" id="view-treinamentos">
+    <div class="page-h">
+      <h1>Treinamentos / DDS</h1>
+      <p>Registros de treinamentos e Diálogos Diários de Segurança · fotos e PDFs</p>
+      <div class="ctx" id="ctx-treinamentos"></div>
+    </div>
+    <div class="filters-inline" id="filt-treinamentos"></div>
+    <div class="kpi-row" id="kpi-treinamentos"></div>
+    <div id="treinamentos-list"></div>
+    <div id="treinamento-editor" style="display:none;margin-top:16px" class="panel">
+      <h3 id="trein-editor-title" style="margin-bottom:12px">Novo treinamento</h3>
+      <div id="trein-form"></div>
+    </div>
+  </div>
 
 <!-- Modal Plano de Ação -->
 <div class="modal-bg" id="modal-acao" role="dialog" aria-modal="true">
@@ -1642,7 +1665,7 @@ const MODULE_LABELS = {
   efluentes:'Efluentes',
   licencas:'Licenças e Alvarás',
   gestaosc:'Gestão de SC',
-  planoacao:'Plano de Ação',
+  planoacao:'Plano de Ação', treinamentos:'Treinamentos/DDS',
   inspecoes:'Inspeções Técnicas',
   cronograma:'Cronograma'
 };
@@ -1672,7 +1695,7 @@ let tableFilters = {};
 let licTab = 'carmak';
 let calCursor = new Date();
 let calSelectedDate = null;
-let DATA_LOCAL = { acoes: [], lembretes: [], inspecoes: [], docsFornecedores: [], movimentacoes: {}, atividades: {} };
+let DATA_LOCAL = { acoes: [], lembretes: [], inspecoes: [], docsFornecedores: [], movimentacoes: {}, atividades: {}, treinamentos: [] };
 let isAdmin = false;
 const ATIV_STATUS = ['Não iniciado','Em andamento','Concluído','Cancelado','Atrasado'];
 let planoAcaoEditingId = null; // id da ação em edição (detalhe com atividades)
@@ -2114,12 +2137,13 @@ function pickModule(mod){
   }
   else if(mod === 'efluentes'){ loadEfluentesFromCloud().then(()=>{ renderFilters(); renderEfluentes(); }); }
   else if(mod === 'gestaosc'){ loadGestaoScFromCloud().then(()=>{ renderFilters(); renderGestaoSc(); }); }
-  else if(mod === 'planoacao' || mod === 'inspecoes' || mod === 'cronograma'){
+  else if(mod === 'planoacao' || mod === 'inspecoes' || mod === 'cronograma' || mod === 'treinamentos'){
     loadLocalData();
     Promise.all([
       syncModulesFromCloud(),
       loadAdminProfile(),
-      mod==='planoacao' ? loadMovimentacoesForAcoes().then(()=>loadAtividadesForAcoes()).then(()=>migrateLegadoParaAtividades()) : Promise.resolve()
+      mod==='planoacao' ? loadMovimentacoesForAcoes().then(()=>loadAtividadesForAcoes()).then(()=>migrateLegadoParaAtividades()) :
+      mod==='treinamentos' ? loadTreinamentosFromCloud() : Promise.resolve()
     ]).then(()=>{ renderFilters(); renderData(); });
     renderFilters();
     renderData();
@@ -2163,6 +2187,7 @@ function renderData(){
   else if(selectedModule==='planoacao') renderPlanoAcao();
   else if(selectedModule==='inspecoes') renderInspecoes();
   else if(selectedModule==='cronograma') renderCronograma();
+  else if(selectedModule==='treinamentos') renderTreinamentos();
 }
 
 function renderFilters(){
@@ -2234,9 +2259,11 @@ function renderFilters(){
   } else if(selectedModule==='planoacao'){
     document.getElementById('filt-planoacao').innerHTML = scope +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openAcaoModal(null)">+ Nova ação</button>
-       <button type="button" class="btn-ma primary" style="margin-top:14px" onclick="exportPlanoAcaoPDF()">↓ PDF</button>
-       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="exportPlanoAcaoExcel()">↓ Excel</button>
-       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadLocalData();renderPlanoAcao();">↻ Atualizar</button>`;
+       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadLocalData();loadAtividadesForAcoes().then(()=>renderPlanoAcao());">↻ Atualizar</button>`;
+  } else if(selectedModule==='treinamentos'){
+    document.getElementById('filt-treinamentos').innerHTML = scope +
+      `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openTreinamentoEditor(null)">+ Novo registro</button>
+       <button type="button" class="btn-ma ghost" style="margin-top:14px" onclick="loadTreinamentosFromCloud().then(()=>renderTreinamentos());">↻ Atualizar</button>`;
   } else if(selectedModule==='inspecoes'){
     document.getElementById('filt-inspecoes').innerHTML = scope +
       `<button type="button" class="btn-ma gold" style="margin-top:14px" onclick="openInspecaoEditor(null)">+ Nova inspeção</button>
@@ -4671,6 +4698,7 @@ function loadLocalData(){
       DATA_LOCAL.docsFornecedores = parsed.docsFornecedores || DATA_LOCAL.docsFornecedores || [];
       DATA_LOCAL.movimentacoes = parsed.movimentacoes || DATA_LOCAL.movimentacoes || {};
       DATA_LOCAL.atividades = parsed.atividades || DATA_LOCAL.atividades || {};
+      DATA_LOCAL.treinamentos = parsed.treinamentos || DATA_LOCAL.treinamentos || [];
     }
   }catch(e){ console.warn(e); }
 }
@@ -4682,7 +4710,8 @@ function saveLocalData(){
       inspecoes: DATA_LOCAL.inspecoes||[],
       docsFornecedores: DATA_LOCAL.docsFornecedores||[],
       movimentacoes: DATA_LOCAL.movimentacoes||{},
-      atividades: DATA_LOCAL.atividades||{}
+      atividades: DATA_LOCAL.atividades||{},
+      treinamentos: DATA_LOCAL.treinamentos||[]
     }));
   }catch(e){ console.warn(e); }
 }
@@ -4956,6 +4985,104 @@ function listAcoesEscopo(){
   if(selectedUnit) list = list.filter(a=>a.filial===selectedUnit);
   return list;
 }
+
+function downloadAcaoAsk(acaoId){
+  const tipo = prompt('Baixar esta ação como:\\n\\n1 = PDF\\n2 = Excel\\n\\nDigite 1 ou 2:','1');
+  if(tipo===null) return;
+  const t = String(tipo).trim();
+  if(t==='1' || /^pdf$/i.test(t)) downloadAcaoPDF(acaoId);
+  else if(t==='2' || /^excel$/i.test(t) || /^xlsx$/i.test(t)) downloadAcaoExcel(acaoId);
+  else alert('Opção inválida. Digite 1 (PDF) ou 2 (Excel).');
+}
+function downloadAcaoExcel(acaoId){
+  loadLocalData();
+  const a = (DATA_LOCAL.acoes||[]).find(x=>x.id===acaoId);
+  if(!a){ alert('Ação não encontrada.'); return; }
+  const ats = listAtividadesAcao(acaoId);
+  const rows = ats.length ? ats.map((t,i)=>({
+    'Nº': i+1,
+    'Filial': a.filial||'',
+    'Ação': a.descricao||'',
+    'Atividade': t.descricao||'',
+    'Responsável atividade': t.responsavel||'',
+    'Data criação atividade': t.data_criacao||'',
+    'Prazo atividade': t.data_limite||'',
+    'Status atividade': t.status||'',
+    'Data conclusão': t.data_conclusao||'',
+    'Observação': t.observacao||'',
+    'Data observação': t.data_observacao||''
+  })) : [{
+    'Nº': 1, 'Filial': a.filial||'', 'Ação': a.descricao||'',
+    'Atividade': '(sem atividades)', 'Responsável atividade': a.responsavel||'',
+    'Data criação atividade': a.criacao||'', 'Prazo atividade': a.previsao||'',
+    'Status atividade': a.status||'', 'Data conclusão': a.concluida||'',
+    'Observação': '', 'Data observação': ''
+  }];
+  const nome = 'Acao_'+String(a.filial||'x').replace(/[^\\wÀ-ÿ\\-]+/g,'_').slice(0,30)+'_'+todayISO();
+  if(typeof XLSX === 'undefined'){
+    const headers = Object.keys(rows[0]);
+    const csv = [headers.join(';')].concat(rows.map(r=>headers.map(h=>'"'+String(r[h]??'').replace(/"/g,'""')+'"').join(';'))).join('\\n');
+    const blob = new Blob(['\\ufeff'+csv], {type:'text/csv;charset=utf-8'});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = nome+'.csv';
+    link.click();
+    return;
+  }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Ação');
+  XLSX.writeFile(wb, nome+'.xlsx');
+}
+async function downloadAcaoPDF(acaoId){
+  loadLocalData();
+  const a = (DATA_LOCAL.acoes||[]).find(x=>x.id===acaoId);
+  if(!a){ alert('Ação não encontrada.'); return; }
+  if(typeof html2pdf === 'undefined'){ alert('html2pdf indisponível'); return; }
+  const ats = listAtividadesAcao(acaoId);
+  const rowsHtml = ats.map((t,i)=>`<tr>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${i+1}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(t.descricao||'')}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(t.responsavel||'')}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${fmtDateISO(t.data_limite)}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(t.status||'')}</td>
+    <td style="border:1px solid #ccc;padding:5px;font-size:10px">${esc(t.observacao||'')}${t.data_observacao?' ('+fmtDateISO(t.data_observacao)+')':''}</td>
+  </tr>`).join('') || `<tr><td colspan="6" style="border:1px solid #ccc;padding:8px;font-size:10px">Sem atividades</td></tr>`;
+  const root = document.createElement('div');
+  root.style.cssText = 'width:190mm;padding:12px 10px;font-family:Arial,Helvetica,sans-serif;color:#0C1A12;background:#fff';
+  root.innerHTML = `
+    <div style="background:linear-gradient(135deg,#0B2E1F,#1A4F36);color:#fff;padding:14px 16px;border-radius:8px 8px 0 0">
+      <div style="font-size:18px;font-weight:800">PLANO DE AÇÃO — DETALHE</div>
+      <div style="font-size:11px;opacity:.9;margin-top:4px">${esc(a.filial||'')} · Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
+    </div>
+    <div style="height:3px;background:linear-gradient(90deg,#C9A227,#E8C547,#C9A227)"></div>
+    <div style="margin-top:12px;font-size:12px;line-height:1.5">
+      <div><b>Ação:</b> ${esc(a.descricao||'')}</div>
+      <div><b>Responsável:</b> ${esc(a.responsavel||'—')} · <b>Criação:</b> ${fmtDateISO(a.criacao)} · <b>Prazo:</b> ${fmtDateISO(a.previsao)} · <b>Status:</b> ${esc(a.status||'—')}</div>
+      ${a.porque?`<div><b>Por quê:</b> ${esc(a.porque)}</div>`:''}
+      ${a.como?`<div><b>Como:</b> ${esc(a.como)}</div>`:''}
+    </div>
+    <div style="margin-top:14px;font-size:13px;font-weight:700;color:#0B2E1F">Atividades</div>
+    <table style="width:100%;border-collapse:collapse;margin-top:6px">
+      <thead><tr style="background:#0B2E1F;color:#fff">
+        <th style="padding:6px;font-size:9px">Nº</th>
+        <th style="padding:6px;font-size:9px">Descrição</th>
+        <th style="padding:6px;font-size:9px">Responsável</th>
+        <th style="padding:6px;font-size:9px">Prazo</th>
+        <th style="padding:6px;font-size:9px">Status</th>
+        <th style="padding:6px;font-size:9px">Observação</th>
+      </tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table>`;
+  const nome = 'Acao_'+String(a.filial||'x').replace(/[^\\wÀ-ÿ\\-]+/g,'_').slice(0,30)+'_'+todayISO()+'.pdf';
+  await html2pdf().set({
+    margin: [10,10,10,10], filename: nome,
+    image: {type:'jpeg', quality:0.95},
+    html2canvas: {scale:2, useCORS:true, backgroundColor:'#ffffff'},
+    jsPDF: {unit:'mm', format:'a4', orientation:'portrait'}
+  }).from(root).save();
+}
+
 function exportPlanoAcaoExcel(){
   const list = listAcoesEscopo();
   if(!list.length){ alert('Nenhuma ação para exportar.'); return; }
@@ -5093,6 +5220,10 @@ function buildAtivFormHtml(acao, ativ){
       <div class="mf"><label>Status *</label><select id="ativ_status_${id}">${stOpts}</select></div>
       <div class="mf"><label>Data de conclusão</label><input type="date" id="ativ_conclusao_${id}" value="${esc(ativ?ativ.data_conclusao||'':'')}"></div>
     </div>
+    <div class="grid2m">
+      <div class="mf"><label>Observação</label><textarea id="ativ_obs_${id}" rows="2" placeholder="Anotações / andamento">${esc(ativ?ativ.observacao||'':'')}</textarea></div>
+      <div class="mf"><label>Data da observação</label><input type="date" id="ativ_obs_data_${id}" value="${esc(ativ?ativ.data_observacao||'':'')}"></div>
+    </div>
     <div class="mf"><label>Evidências (PDF ou imagem)</label>
       <input type="file" id="ativ_files_${id}" accept="application/pdf,image/*,.pdf" multiple style="font-size:12px">
       <div id="ativ_evid_list_${id}" style="margin-top:4px">${evidList}</div>
@@ -5117,12 +5248,43 @@ function fecharAcaoDetalhe(){
   planoAcaoEditingId = null;
   renderPlanoAcao();
 }
+function getAtivFilters(acaoId){
+  return {
+    desc: (document.getElementById('ativ_f_desc_'+acaoId)?.value||'').trim().toLowerCase(),
+    resp: (document.getElementById('ativ_f_resp_'+acaoId)?.value||'').trim().toLowerCase(),
+    prazo: document.getElementById('ativ_f_prazo_'+acaoId)?.value || '',
+    status: document.getElementById('ativ_f_status_'+acaoId)?.value || ''
+  };
+}
+function applyAtivFilters(acaoId){
+  // re-render only the atividades table body if possible; simpler: full detail re-render preserving filters via dataset
+  const f = getAtivFilters(acaoId);
+  window._ativFilterCache = window._ativFilterCache || {};
+  window._ativFilterCache[acaoId] = f;
+  renderPlanoAcao();
+  // restore filter inputs after re-render
+  setTimeout(()=>{
+    const c = window._ativFilterCache[acaoId]||{};
+    const set = (id,v)=>{ const el=document.getElementById(id); if(el) el.value=v||''; };
+    set('ativ_f_desc_'+acaoId, c.desc||'');
+    set('ativ_f_resp_'+acaoId, c.resp||'');
+    set('ativ_f_prazo_'+acaoId, c.prazo||'');
+    set('ativ_f_status_'+acaoId, c.status||'');
+  }, 0);
+}
 function renderAtividadesBlock(a){
-  const ats = listAtividadesAcao(a.id).sort((x,y)=>String(x.data_limite||'').localeCompare(String(y.data_limite||'')));
+  const cache = (window._ativFilterCache && window._ativFilterCache[a.id]) || {};
+  let ats = listAtividadesAcao(a.id).sort((x,y)=>String(x.data_limite||'').localeCompare(String(y.data_limite||'')));
+  if(cache.desc) ats = ats.filter(t=>(t.descricao||'').toLowerCase().includes(cache.desc));
+  if(cache.resp) ats = ats.filter(t=>(t.responsavel||'').toLowerCase().includes(cache.resp));
+  if(cache.prazo) ats = ats.filter(t=>(t.data_limite||'')===cache.prazo);
+  if(cache.status) ats = ats.filter(t=>(t.status||'')===cache.status);
+  const stFilterOpts = ['<option value="">Todos</option>'].concat(ATIV_STATUS.map(s=>`<option value="${s}" ${cache.status===s?'selected':''}>${s}</option>`)).join('');
   const rows = ats.map(t=>{
     const nEv = (t.evidencias||[]).length;
+    const obs = t.observacao ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(t.observacao)}${t.data_observacao?' · '+fmtDateISO(t.data_observacao):''}</div>` : '';
     return `<tr data-ativ-id="${t.id}">
-      <td style="font-size:12px;font-weight:600">${esc(t.descricao||'')}</td>
+      <td style="font-size:12px;font-weight:600">${esc(t.descricao||'')}${obs}</td>
       <td style="font-size:12px">${esc(t.responsavel||'—')}</td>
       <td style="font-size:12px;white-space:nowrap">${fmtDateISO(t.data_limite)}</td>
       <td style="font-size:12px">${statusBadgeAtiv(t.status)}${nEv?` <span title="${nEv} evidência(s)">📎${nEv}</span>`:''}</td>
@@ -5132,16 +5294,26 @@ function renderAtividadesBlock(a){
       </td>
     </tr>
     <tr id="ativ-edit-${t.id}" style="display:none"><td colspan="5">${buildAtivFormHtml(a, t)}</td></tr>`;
-  }).join('') || `<tr><td colspan="5" style="font-size:12px;color:var(--muted);padding:10px">Nenhuma atividade cadastrada nesta ação.</td></tr>`;
+  }).join('') || `<tr><td colspan="5" style="font-size:12px;color:var(--muted);padding:10px">Nenhuma atividade${(cache.desc||cache.resp||cache.prazo||cache.status)?' com este filtro':''}.</td></tr>`;
   const formNova = isAdmin ? `
     <div class="timeline-compose admin-only" style="display:block;margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--tint-2)" id="ativ-nova-wrap-${a.id}">
       <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">+ Nova atividade nesta ação</div>
-      <p class="panel-sub" style="margin:0 0 8px">Cada atividade pode ter responsável e prazo próprios.</p>
+      <p class="panel-sub" style="margin:0 0 8px">Cada atividade pode ter responsável, prazo e observação próprios.</p>
       ${buildAtivFormHtml(a, null)}
     </div>` : '';
   return `
     <div class="timeline" style="margin-top:10px">
-      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:8px">Atividades da ação (${ats.length})</div>
+      <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:700;color:var(--navy)">Atividades da ação (${ats.length})</div>
+        <button type="button" class="btn-ma primary" style="padding:6px 12px;font-size:11px" onclick="downloadAcaoAsk('${a.id}')">↓ Download ação (PDF / Excel)</button>
+      </div>
+      <div class="filters-inline" style="margin-bottom:10px;padding:10px 12px">
+        <div class="mf" style="min-width:140px;flex:1"><label>Descrição</label><input id="ativ_f_desc_${a.id}" placeholder="Filtrar descrição" value="${esc(cache.desc||'')}" oninput="/* live */"></div>
+        <div class="mf" style="min-width:120px;flex:1"><label>Responsável</label><input id="ativ_f_resp_${a.id}" placeholder="Filtrar responsável" value="${esc(cache.resp||'')}"></div>
+        <div class="mf" style="min-width:120px"><label>Prazo</label><input type="date" id="ativ_f_prazo_${a.id}" value="${esc(cache.prazo||'')}"></div>
+        <div class="mf" style="min-width:120px"><label>Status</label><select id="ativ_f_status_${a.id}">${stFilterOpts}</select></div>
+        <button type="button" class="btn-ma gold" style="align-self:flex-end;padding:8px 12px" onclick="applyAtivFilters('${a.id}')">Filtrar</button>
+      </div>
       <div class="table-wrap" style="max-height:none">
         <table class="data" style="font-size:12px">
           <thead><tr>
@@ -5222,6 +5394,7 @@ function renderPlanoAcao(){
       <td style="font-size:12px">${statusBadgeAcao(a.status)}</td>
       <td style="white-space:nowrap">
         <button type="button" class="btn-ma primary" style="padding:5px 10px;font-size:11px" onclick="openAcaoDetalhe('${a.id}')">Editar</button>
+        <button type="button" class="btn-ma ghost" style="padding:5px 10px;font-size:11px" onclick="downloadAcaoAsk('${a.id}')">↓ Download</button>
         <button type="button" class="btn-ma danger admin-only-inline" style="padding:5px 10px;font-size:11px" onclick="deleteAcao('${a.id}')">Excluir</button>
       </td>
     </tr>`;
@@ -5256,7 +5429,7 @@ async function loadAtividadesForAcoes(){
       map[aid].push({
         id: r.id, acao_id: aid, descricao: r.descricao||'', responsavel: r.responsavel||'',
         data_criacao: r.data_criacao||'', data_limite: r.data_limite||'',
-        data_conclusao: r.data_conclusao||null, status: r.status||'Não iniciado', evidencias: []
+        data_conclusao: r.data_conclusao||null, status: r.status||'Não iniciado', observacao: r.observacao||'', data_observacao: r.data_observacao||null, evidencias: []
       });
     });
     try{
@@ -5364,6 +5537,8 @@ async function saveAtividade(acaoId, ativId){
   const data_limite = document.getElementById('ativ_limite_'+formKey)?.value || '';
   const status = document.getElementById('ativ_status_'+formKey)?.value || 'Não iniciado';
   let data_conclusao = document.getElementById('ativ_conclusao_'+formKey)?.value || null;
+  const observacao = (document.getElementById('ativ_obs_'+formKey)?.value||'').trim();
+  const data_observacao = document.getElementById('ativ_obs_data_'+formKey)?.value || null;
   if(!descricao || !responsavel || !data_criacao || !data_limite){
     alert('Preencha descrição, responsável, data de criação e data limite.'); return;
   }
@@ -5377,12 +5552,12 @@ async function saveAtividade(acaoId, ativId){
   if(!DATA_LOCAL.atividades[acaoId]) DATA_LOCAL.atividades[acaoId]=[];
   let row;
   if(isNew){
-    row = { id: uid(), acao_id: acaoId, descricao, responsavel, data_criacao, data_limite, data_conclusao, status, evidencias: [] };
+    row = { id: uid(), acao_id: acaoId, descricao, responsavel, data_criacao, data_limite, data_conclusao, status, observacao, data_observacao, evidencias: [] };
     DATA_LOCAL.atividades[acaoId].push(row);
   } else {
     row = DATA_LOCAL.atividades[acaoId].find(x=>x.id===ativId);
     if(!row){ alert('Atividade não encontrada.'); return; }
-    Object.assign(row, { descricao, responsavel, data_criacao, data_limite, data_conclusao, status });
+    Object.assign(row, { descricao, responsavel, data_criacao, data_limite, data_conclusao, status, observacao, data_observacao });
   }
   const fileEl = document.getElementById('ativ_files_'+formKey);
   const files = fileEl && fileEl.files ? [...fileEl.files] : [];
@@ -5391,7 +5566,8 @@ async function saveAtividade(acaoId, ativId){
       const payload = {
         id: row.id, acao_id: acaoId, descricao: row.descricao, responsavel: row.responsavel,
         data_criacao: row.data_criacao, data_limite: row.data_limite, data_conclusao: row.data_conclusao,
-        status: row.status, created_by: currentUser.id, updated_at: new Date().toISOString()
+        status: row.status, observacao: row.observacao||null, data_observacao: row.data_observacao||null,
+        created_by: currentUser.id, updated_at: new Date().toISOString()
       };
       const { error } = await sb.from('plano_acao_atividades').upsert(payload);
       if(error) throw error;
@@ -5479,6 +5655,250 @@ async function openPlanoFile(path, nome){
   else alert('Não foi possível abrir: '+nome);
 }
 
+
+
+/* ---- Treinamentos / DDS ---- */
+let treinDraft = null;
+async function loadTreinamentosFromCloud(){
+  if(!sb || !currentUser){ loadLocalData(); return; }
+  try{
+    const { data, error } = await sb.from('treinamentos').select('*').order('data',{ascending:false});
+    if(error){ console.warn('[MA] treinamentos', error.message); return; }
+    DATA_LOCAL.treinamentos = (data||[]).map(r=>({
+      id: r.id,
+      filial: r.filial||'',
+      tipo: r.tipo||'DDS',
+      titulo: r.titulo||'',
+      descricao: r.descricao||'',
+      data: r.data||'',
+      responsavel: r.responsavel||'',
+      participantes: r.participantes||'',
+      carga_horaria: r.carga_horaria||'',
+      fotos: Array.isArray(r.fotos)?r.fotos:(typeof r.fotos==='string'?JSON.parse(r.fotos||'[]'):[]),
+      arquivos: Array.isArray(r.arquivos)?r.arquivos:(typeof r.arquivos==='string'?JSON.parse(r.arquivos||'[]'):[])
+    }));
+    // signed URLs for files if only path
+    saveLocalData();
+  }catch(e){ console.warn(e); }
+}
+function openTreinamentoById(id){
+  loadLocalData();
+  const row = (DATA_LOCAL.treinamentos||[]).find(x=>x.id===id);
+  if(!row){ alert('Registro não encontrado.'); return; }
+  openTreinamentoEditor(row);
+}
+function openTreinamentoEditor(row){
+  treinDraft = row ? JSON.parse(JSON.stringify(row)) : {
+    id: uid(), filial: selectedUnit||'', tipo:'DDS', titulo:'', descricao:'',
+    data: todayISO(), responsavel:'', participantes:'', carga_horaria:'',
+    fotos: [], arquivos: []
+  };
+  document.getElementById('treinamento-editor').style.display = 'block';
+  document.getElementById('trein-editor-title').textContent = row ? 'Editar registro' : 'Novo treinamento / DDS';
+  renderTreinForm();
+  document.getElementById('treinamento-editor').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function cancelTreinEditor(){
+  treinDraft = null;
+  document.getElementById('treinamento-editor').style.display = 'none';
+}
+function renderTreinForm(){
+  const d = treinDraft;
+  if(!d) return;
+  const fotosHtml = (d.fotos||[]).map((f,i)=>`
+    <div class="photo-card">
+      <button type="button" class="pc-del" onclick="treinDraft.fotos.splice(${i},1);renderTreinForm()" title="Remover">×</button>
+      <img src="${f.dataUrl||f.url||''}" alt="">
+      <div class="pc-body"><div class="pc-field" style="font-size:11px">${esc(f.nome||'foto')}</div></div>
+    </div>`).join('');
+  const arqHtml = (d.arquivos||[]).map((f,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;margin:4px 0">
+      <a href="#" onclick="event.preventDefault();openTreinFile('${esc(f.path||f.url||'')}','${esc(f.nome||'')}')">📄 ${esc(f.nome||'arquivo')}</a>
+      <button type="button" class="btn-ma danger" style="padding:2px 6px;font-size:10px" onclick="treinDraft.arquivos.splice(${i},1);renderTreinForm()">×</button>
+    </div>`).join('') || '<div style="font-size:12px;color:var(--muted)">Nenhum PDF</div>';
+  document.getElementById('trein-form').innerHTML = `
+    <div class="grid2m">
+      <div class="mf"><label>Filial / Unidade *</label><input id="trein_filial" list="dl-unidades" value="${esc(d.filial||'')}"></div>
+      <div class="mf"><label>Tipo *</label>
+        <select id="trein_tipo">
+          <option value="DDS" ${d.tipo==='DDS'?'selected':''}>DDS</option>
+          <option value="Treinamento" ${d.tipo==='Treinamento'?'selected':''}>Treinamento</option>
+          <option value="Capacitação" ${d.tipo==='Capacitação'?'selected':''}>Capacitação</option>
+          <option value="Outro" ${d.tipo==='Outro'?'selected':''}>Outro</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid2m">
+      <div class="mf"><label>Título *</label><input id="trein_titulo" value="${esc(d.titulo||'')}"></div>
+      <div class="mf"><label>Data *</label><input type="date" id="trein_data" value="${esc(d.data||todayISO())}"></div>
+    </div>
+    <div class="grid2m">
+      <div class="mf"><label>Responsável / Instrutor</label><input id="trein_resp" value="${esc(d.responsavel||'')}"></div>
+      <div class="mf"><label>Carga horária</label><input id="trein_ch" value="${esc(d.carga_horaria||'')}" placeholder="Ex.: 1h, 30min"></div>
+    </div>
+    <div class="mf"><label>Participantes</label><textarea id="trein_part" rows="2" placeholder="Nomes ou quantidade">${esc(d.participantes||'')}</textarea></div>
+    <div class="mf"><label>Descrição / Conteúdo</label><textarea id="trein_desc" rows="3">${esc(d.descricao||'')}</textarea></div>
+    <div class="section-label">Fotos</div>
+    <div class="upload-zone" onclick="document.getElementById('trein_fotos').click()">
+      <input type="file" id="trein_fotos" accept="image/*" multiple style="display:none" onchange="handleTreinFotos(event)">
+      <div style="font-weight:700;color:var(--navy)">Clique para adicionar fotos</div>
+    </div>
+    <div class="photo-grid">${fotosHtml || '<div class="empty-state" style="padding:12px;grid-column:1/-1">Nenhuma foto</div>'}</div>
+    <div class="section-label">Arquivos PDF</div>
+    <div class="mf">
+      <input type="file" id="trein_pdfs" accept="application/pdf,.pdf" multiple style="font-size:12px" onchange="handleTreinPdfs(event)">
+      ${arqHtml}
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">
+      <button type="button" class="btn-ma primary" onclick="saveTreinamento()">Salvar</button>
+      <button type="button" class="btn-ma ghost" onclick="cancelTreinEditor()">Cancelar</button>
+    </div>`;
+}
+function handleTreinFotos(ev){
+  const files = [...(ev.target.files||[])];
+  if(!files.length||!treinDraft) return;
+  let pending = files.length;
+  files.forEach(file=>{
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      treinDraft.fotos.push({ dataUrl: reader.result, nome: file.name, file });
+      pending--;
+      if(pending<=0) renderTreinForm();
+    };
+    reader.readAsDataURL(file);
+  });
+  try{ ev.target.value=''; }catch(_e){}
+}
+function handleTreinPdfs(ev){
+  const files = [...(ev.target.files||[])];
+  if(!files.length||!treinDraft) return;
+  files.forEach(file=>{
+    treinDraft.arquivos.push({ nome: file.name, file, tipo:'pdf' });
+  });
+  renderTreinForm();
+  try{ ev.target.value=''; }catch(_e){}
+}
+async function openTreinFile(path, nome){
+  if(!path){ alert('Arquivo indisponível.'); return; }
+  if(/^https?:/i.test(path) || String(path).startsWith('data:')){ window.open(path,'_blank'); return; }
+  const u = await signedUrlFromPath('treinamentos-docs', path);
+  if(u) window.open(u,'_blank');
+  else alert('Não foi possível abrir: '+nome);
+}
+async function saveTreinamento(){
+  if(!treinDraft) return;
+  const filial = (document.getElementById('trein_filial')?.value||'').trim();
+  const tipo = document.getElementById('trein_tipo')?.value || 'DDS';
+  const titulo = (document.getElementById('trein_titulo')?.value||'').trim();
+  const data = document.getElementById('trein_data')?.value || todayISO();
+  const responsavel = (document.getElementById('trein_resp')?.value||'').trim();
+  const carga_horaria = (document.getElementById('trein_ch')?.value||'').trim();
+  const participantes = (document.getElementById('trein_part')?.value||'').trim();
+  const descricao = (document.getElementById('trein_desc')?.value||'').trim();
+  if(!filial || !titulo || !data){ alert('Preencha filial, título e data.'); return; }
+  treinDraft.filial = filial; treinDraft.tipo = tipo; treinDraft.titulo = titulo;
+  treinDraft.data = data; treinDraft.responsavel = responsavel;
+  treinDraft.carga_horaria = carga_horaria; treinDraft.participantes = participantes;
+  treinDraft.descricao = descricao;
+  try{
+    if(sb && currentUser){
+      // upload fotos novas
+      const fotosOut = [];
+      for(const f of (treinDraft.fotos||[])){
+        if(f.path && !f.file){ fotosOut.push({ path:f.path, nome:f.nome, url:f.url }); continue; }
+        if(f.file || f.dataUrl){
+          let file = f.file;
+          if(!file && f.dataUrl) file = dataUrlToFile(f.dataUrl, f.nome||('foto_'+Date.now()+'.jpg'));
+          if(file){
+            const path = treinDraft.id + '/fotos/' + Date.now() + '_' + (file.name||'foto').replace(/[^\\w.\\-]+/g,'_');
+            const up = await uploadToBucket('treinamentos-docs', path, file);
+            fotosOut.push({ path: up.path, nome: up.nome||file.name });
+          }
+        }
+      }
+      const arqOut = [];
+      for(const f of (treinDraft.arquivos||[])){
+        if(f.path && !f.file){ arqOut.push({ path:f.path, nome:f.nome, tipo:f.tipo||'pdf' }); continue; }
+        if(f.file){
+          const path = treinDraft.id + '/pdfs/' + Date.now() + '_' + f.file.name.replace(/[^\\w.\\-]+/g,'_');
+          const up = await uploadToBucket('treinamentos-docs', path, f.file);
+          arqOut.push({ path: up.path, nome: up.nome||f.file.name, tipo:'pdf' });
+        }
+      }
+      const payload = {
+        id: treinDraft.id, filial, tipo, titulo, data, responsavel, carga_horaria,
+        participantes, descricao, fotos: fotosOut, arquivos: arqOut,
+        updated_at: new Date().toISOString(), created_by: currentUser.id
+      };
+      const { error } = await sb.from('treinamentos').upsert(payload);
+      if(error) throw error;
+      treinDraft.fotos = fotosOut;
+      treinDraft.arquivos = arqOut;
+    }
+    loadLocalData();
+    const idx = (DATA_LOCAL.treinamentos||[]).findIndex(x=>x.id===treinDraft.id);
+    if(idx>=0) DATA_LOCAL.treinamentos[idx] = {...treinDraft};
+    else { DATA_LOCAL.treinamentos = DATA_LOCAL.treinamentos||[]; DATA_LOCAL.treinamentos.unshift({...treinDraft}); }
+    saveLocalData();
+    cancelTreinEditor();
+    await loadTreinamentosFromCloud();
+    renderTreinamentos();
+  }catch(e){
+    console.error(e);
+    alert('Erro ao salvar treinamento: '+(e.message||e));
+  }
+}
+async function deleteTreinamento(id){
+  if(!confirm('Excluir este registro?')) return;
+  loadLocalData();
+  DATA_LOCAL.treinamentos = (DATA_LOCAL.treinamentos||[]).filter(x=>x.id!==id);
+  saveLocalData();
+  if(sb && currentUser){
+    try{ await sb.from('treinamentos').delete().eq('id', id); }catch(e){ console.warn(e); }
+  }
+  renderTreinamentos();
+}
+function renderTreinamentos(){
+  loadLocalData();
+  let list = (DATA_LOCAL.treinamentos||[]).slice();
+  if(selectedUnit) list = list.filter(t=>t.filial===selectedUnit);
+  const total = list.length;
+  const dds = list.filter(t=>t.tipo==='DDS').length;
+  const treins = list.filter(t=>t.tipo!=='DDS').length;
+  document.getElementById('kpi-treinamentos').innerHTML = `
+    <div class="kpi gold-edge"><div class="lbl">Registros</div><div class="val">${total}</div><div class="sub">no escopo</div></div>
+    <div class="kpi ok-edge"><div class="lbl">DDS</div><div class="val">${dds}</div><div class="sub">diálogos</div></div>
+    <div class="kpi"><div class="lbl">Treinamentos</div><div class="val">${treins}</div><div class="sub">capacitações</div></div>
+    <div class="kpi feat"><div class="lbl">Com evidência</div><div class="val">${list.filter(t=>(t.fotos&&t.fotos.length)||(t.arquivos&&t.arquivos.length)).length}</div><div class="sub">fotos ou PDF</div></div>`;
+  const root = document.getElementById('treinamentos-list');
+  if(!list.length){
+    root.innerHTML = '<div class="empty-state">Nenhum registro. Clique em “+ Novo registro”.</div>';
+    return;
+  }
+  root.innerHTML = list.map(t=>{
+    const nFoto = (t.fotos||[]).length;
+    const nPdf = (t.arquivos||[]).length;
+    return `<div class="action-card">
+      <div class="ac-head">
+        <div class="ac-title">${esc(t.titulo||'Sem título')} <span class="badge off" style="margin-left:6px">${esc(t.tipo||'')}</span></div>
+        <div style="display:flex;gap:6px">
+          <button type="button" class="btn-ma ghost" style="padding:6px 10px;font-size:11px" onclick="openTreinamentoById('${t.id}')">Editar</button>
+          <button type="button" class="btn-ma danger admin-only-inline" style="padding:6px 10px;font-size:11px" onclick="deleteTreinamento('${t.id}')">Excluir</button>
+        </div>
+      </div>
+      <div class="ac-meta">
+        <span>🏢 ${esc(t.filial||'—')}</span>
+        <span>📅 ${fmtDateISO(t.data)}</span>
+        <span>👤 ${esc(t.responsavel||'—')}</span>
+        ${t.carga_horaria?`<span>⏱ ${esc(t.carga_horaria)}</span>`:''}
+        <span>📷 ${nFoto} foto(s)</span>
+        <span>📄 ${nPdf} PDF(s)</span>
+      </div>
+      ${t.descricao?`<div style="font-size:12px;color:var(--ink-2);margin-top:4px">${esc(t.descricao)}</div>`:''}
+      ${t.participantes?`<div style="font-size:12px;color:var(--muted);margin-top:2px"><b>Participantes:</b> ${esc(t.participantes)}</div>`:''}
+    </div>`;
+  }).join('');
+}
 
 /* ---- Cronograma ---- */
 function openReminderModal(){
