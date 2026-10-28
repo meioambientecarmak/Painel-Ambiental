@@ -670,6 +670,25 @@ body.on-guia{
   font-size:11px; color:var(--muted); margin-left:auto; align-self:center;
 }
 
+/* Download split menu (Plano de Ação) */
+.dl-wrap{position:relative;display:inline-block;vertical-align:middle}
+.dl-wrap > .dl-toggle{white-space:nowrap}
+.dl-menu{
+  display:none;position:absolute;top:calc(100% + 4px);right:0;z-index:80;
+  min-width:140px;background:var(--card);border:1px solid var(--line);
+  border-radius:10px;box-shadow:var(--shadow-lg);padding:6px;flex-direction:column;gap:4px;
+}
+.dl-menu.open{display:flex}
+.dl-menu button{
+  appearance:none;border:1px solid var(--line);background:#fff;color:var(--ink);
+  border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;text-align:left;
+  width:100%;
+}
+.dl-menu button:hover{border-color:var(--gold);color:var(--navy);background:var(--gold-soft)}
+.dl-menu button.dl-pdf{border-color:rgba(185,28,28,.25)}
+.dl-menu button.dl-xlsx{border-color:rgba(27,122,74,.25)}
+
+
 
 /* Topbar actions */
 .tb-btn{
@@ -4982,13 +5001,35 @@ function listAcoesEscopo(){
   return list;
 }
 
-function downloadAcaoAsk(acaoId){
-  const tipo = prompt('Baixar esta ação como:\\n\\n1 = PDF\\n2 = Excel\\n\\nDigite 1 ou 2:','1');
-  if(tipo===null) return;
-  const t = String(tipo).trim();
-  if(t==='1' || /^pdf$/i.test(t)) downloadAcaoPDF(acaoId);
-  else if(t==='2' || /^excel$/i.test(t) || /^xlsx$/i.test(t)) downloadAcaoExcel(acaoId);
-  else alert('Opção inválida. Digite 1 (PDF) ou 2 (Excel).');
+function closeAllDlMenus(exceptId){
+  document.querySelectorAll('.dl-menu.open').forEach(el=>{
+    if(exceptId && el.id===exceptId) return;
+    el.classList.remove('open');
+  });
+}
+function toggleAcaoDownloadMenu(acaoId, ev){
+  if(ev){ ev.preventDefault(); ev.stopPropagation(); }
+  const menuId = 'dl-menu-'+acaoId;
+  const menu = document.getElementById(menuId);
+  if(!menu) return;
+  const willOpen = !menu.classList.contains('open');
+  closeAllDlMenus(willOpen ? menuId : null);
+  if(willOpen) menu.classList.add('open');
+  else menu.classList.remove('open');
+}
+function downloadAcaoAsk(acaoId, ev){
+  toggleAcaoDownloadMenu(acaoId, ev);
+}
+function acaoDownloadMenuHtml(acaoId, btnClass, btnLabel){
+  const cls = btnClass || 'btn-ma ghost';
+  const label = btnLabel || '↓ Download';
+  return `<span class="dl-wrap">
+    <button type="button" class="${cls}" style="padding:5px 10px;font-size:11px" onclick="toggleAcaoDownloadMenu('${acaoId}', event)">${label}</button>
+    <div class="dl-menu" id="dl-menu-${acaoId}">
+      <button type="button" class="dl-xlsx" onclick="closeAllDlMenus();downloadAcaoExcel('${acaoId}')">📊 Excel</button>
+      <button type="button" class="dl-pdf" onclick="closeAllDlMenus();downloadAcaoPDF('${acaoId}')">📄 PDF</button>
+    </div>
+  </span>`;
 }
 function downloadAcaoExcel(acaoId){
   loadLocalData();
@@ -5301,7 +5342,7 @@ function renderAtividadesBlock(a){
     <div class="timeline" style="margin-top:10px">
       <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
         <div style="font-size:13px;font-weight:700;color:var(--navy)">Atividades da ação (${ats.length})</div>
-        <button type="button" class="btn-ma primary" style="padding:6px 12px;font-size:11px" onclick="downloadAcaoAsk('${a.id}')">↓ Download ação (PDF / Excel)</button>
+        ${acaoDownloadMenuHtml(a.id, 'btn-ma primary', '↓ Download ação')}
       </div>
       <div class="filters-inline" style="margin-bottom:10px;padding:10px 12px">
         <div class="mf" style="min-width:140px;flex:1"><label>Descrição</label><input id="ativ_f_desc_${a.id}" placeholder="Filtrar descrição" value="${esc(cache.desc||'')}" oninput="/* live */"></div>
@@ -5390,7 +5431,7 @@ function renderPlanoAcao(){
       <td style="font-size:12px">${statusBadgeAcao(a.status)}</td>
       <td style="white-space:nowrap">
         <button type="button" class="btn-ma primary" style="padding:5px 10px;font-size:11px" onclick="openAcaoDetalhe('${a.id}')">Editar</button>
-        <button type="button" class="btn-ma ghost" style="padding:5px 10px;font-size:11px" onclick="downloadAcaoAsk('${a.id}')">↓ Download</button>
+        ${acaoDownloadMenuHtml(a.id, 'btn-ma ghost', '↓ Download')}
         <button type="button" class="btn-ma danger admin-only-inline" style="padding:5px 10px;font-size:11px" onclick="deleteAcao('${a.id}')">Excluir</button>
       </td>
     </tr>`;
@@ -6824,6 +6865,7 @@ wireLogin();
 document.addEventListener('click', e=>{
   const t = e.target;
   if(!t.closest) return;
+  if(!t.closest('.dl-wrap')) closeAllDlMenus();
   if(!t.closest('#panel-notif') && !t.closest('#btn-notif')){
     document.getElementById('panel-notif')?.classList.remove('on');
   }
