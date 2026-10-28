@@ -1381,7 +1381,8 @@ body:not(.is-admin) .admin-only-inline{display:none !important}
         <div class="mf"><label>Evidência (comprovação)</label><input id="acao_evidencia" placeholder="Ex.: Protocolo, fotos, lista de presença"></div>
         <div class="mf"><label>Observações</label><input id="acao_obs" placeholder="Observações"></div>
       </div>
-      <div class="mf"><label>Microações / checklist (uma por linha)</label><textarea id="acao_micros" placeholder="Ex.: Demarcar área de óleos&#10;Identificar coletores&#10;Treinar equipe"></textarea></div>
+      <div class="mf"><label>Observação (legado)</label><p class="panel-sub" style="margin:0 0 6px">As <b>atividades</b> (com responsável, prazo, status e evidências) são cadastradas dentro do card da ação após salvar.</p>
+        <textarea id="acao_micros" placeholder="Campo legado — preferir atividades no card da ação" rows="2"></textarea></div>
     </div>
     <div class="ma">
       <button type="button" class="btn-ma ghost" onclick="closeAcaoModal()">Cancelar</button>
@@ -1671,8 +1672,9 @@ let tableFilters = {};
 let licTab = 'carmak';
 let calCursor = new Date();
 let calSelectedDate = null;
-let DATA_LOCAL = { acoes: [], lembretes: [], inspecoes: [], docsFornecedores: [], movimentacoes: {} };
+let DATA_LOCAL = { acoes: [], lembretes: [], inspecoes: [], docsFornecedores: [], movimentacoes: {}, atividades: {} };
 let isAdmin = false;
+const ATIV_STATUS = ['Não iniciado','Em andamento','Concluído','Cancelado','Atrasado'];
 
 
 function clearFilters(){
@@ -2113,8 +2115,11 @@ function pickModule(mod){
   else if(mod === 'gestaosc'){ loadGestaoScFromCloud().then(()=>{ renderFilters(); renderGestaoSc(); }); }
   else if(mod === 'planoacao' || mod === 'inspecoes' || mod === 'cronograma'){
     loadLocalData();
-    Promise.all([syncModulesFromCloud(), loadAdminProfile(), mod==='planoacao'?loadMovimentacoesForAcoes():Promise.resolve()])
-      .then(()=>{ renderFilters(); renderData(); });
+    Promise.all([
+      syncModulesFromCloud(),
+      loadAdminProfile(),
+      mod==='planoacao' ? loadMovimentacoesForAcoes().then(()=>loadAtividadesForAcoes()).then(()=>migrateLegadoParaAtividades()) : Promise.resolve()
+    ]).then(()=>{ renderFilters(); renderData(); });
     renderFilters();
     renderData();
   }
@@ -4663,6 +4668,8 @@ function loadLocalData(){
       DATA_LOCAL.lembretes = parsed.lembretes || DATA_LOCAL.lembretes || [];
       DATA_LOCAL.inspecoes = parsed.inspecoes || DATA_LOCAL.inspecoes || [];
       DATA_LOCAL.docsFornecedores = parsed.docsFornecedores || DATA_LOCAL.docsFornecedores || [];
+      DATA_LOCAL.movimentacoes = parsed.movimentacoes || DATA_LOCAL.movimentacoes || {};
+      DATA_LOCAL.atividades = parsed.atividades || DATA_LOCAL.atividades || {};
     }
   }catch(e){ console.warn(e); }
 }
@@ -4672,7 +4679,9 @@ function saveLocalData(){
       acoes: DATA_LOCAL.acoes||[],
       lembretes: DATA_LOCAL.lembretes||[],
       inspecoes: DATA_LOCAL.inspecoes||[],
-      docsFornecedores: DATA_LOCAL.docsFornecedores||[]
+      docsFornecedores: DATA_LOCAL.docsFornecedores||[],
+      movimentacoes: DATA_LOCAL.movimentacoes||{},
+      atividades: DATA_LOCAL.atividades||{}
     }));
   }catch(e){ console.warn(e); }
 }
@@ -4795,10 +4804,18 @@ function saveAcao(){
   const prev = document.getElementById('acao_prev').value;
   const criacao = document.getElementById('acao_criacao').value || todayISO();
   if(!desc||!filial||!resp||!prev){ alert('Preencha os campos obrigatórios.'); return; }
-  const microsText = document.getElementById('acao_micros').value||'';
-  const microLines = microsText.split('\n').map(s=>s.trim()).filter(Boolean);
   const id = document.getElementById('acao_id').value || uid();
   loadLocalData();
+  const atvsCheck = listAtividadesAcao(id);
+  if(atvsCheck.length){
+    const maxLim = atvsCheck.reduce((m,t)=> (!m || (t.data_limite&&t.data_limite>m)) ? (t.data_limite||m) : m, '');
+    if(maxLim && prev < maxLim){
+      alert('O prazo da ação deve ser igual ou posterior à maior data limite das atividades ('+fmtDateISO(maxLim)+').');
+      return;
+    }
+  }
+  const microsText = (document.getElementById('acao_micros')&&document.getElementById('acao_micros').value)||'';
+  const microLines = microsText.split('\n').map(s=>s.trim()).filter(Boolean);
   const existing = DATA_LOCAL.acoes.find(a=>a.id===id);
   const oldMicros = existing ? existing.micros||[] : [];
   const micros = microLines.map((text,i)=>{
@@ -4873,10 +4890,48 @@ function deleteAcao(id){
   if(sb && currentUser) sb.from('plano_acoes').delete().eq('id',id).then(({error})=>{ if(error) console.warn(error.message); });
   renderPlanoAcao();
 }
+function listAtividadesAcao(acaoId){
+  return (DATA_LOCAL.atividades && DATA_LOCAL.atividades[acaoId]) ? DATA_LOCAL.atividades[acaoId].slice() : [];
+}
 function acaoProgress(a){
+  const ats = listAtividadesAcao(a.id);
+  if(ats.length){
+    const done = ats.filter(x=>x.status==='Concluído').length;
+    return Math.round(100 * done / ats.length);
+  }
   const ms = a.micros||[];
-  if(!ms.length) return a.concluida ? 100 : 0;
+  if(!ms.length) return (a.status==='Concluído' || a.concluida) ? 100 : 0;
   return Math.round(100 * ms.filter(m=>m.done).length / ms.length);
+}
+function syncAcaoStatusFromAtividades(acaoId){
+  loadLocalData();
+  const a = (DATA_LOCAL.acoes||[]).find(x=>x.id===acaoId);
+  if(!a) return;
+  const ats = listAtividadesAcao(acaoId);
+  if(!ats.length) return;
+  const allDone = ats.every(x=>x.status==='Concluído');
+  const anyRunning = ats.some(x=>x.status==='Em andamento' || x.status==='Atrasado');
+  if(allDone){
+    a.status = 'Concluído';
+    a.concluida = a.concluida || todayISO();
+  } else if(anyRunning && a.status==='Não iniciado'){
+    a.status = 'Em andamento';
+    a.concluida = null;
+  } else if(!allDone && a.status==='Concluído'){
+    a.status = 'Em andamento';
+    a.concluida = null;
+  }
+  saveLocalData();
+  if(sb && currentUser){
+    sb.from('plano_acoes').upsert({
+      id:a.id, criacao:a.criacao, filial:a.filial, descricao:a.descricao,
+      responsavel:a.responsavel, previsao:a.previsao, concluida:a.concluida,
+      micros:a.micros||[], updated_at:new Date().toISOString(),
+      meta: { status:a.status||'', prioridade:a.prioridade||'', setor:a.setor||'',
+        porque:a.porque||'', como:a.como||'', origem:a.origem||'',
+        evidencia:a.evidencia||'', obs:a.obs||'' }
+    }).then(({error})=>{ if(error) console.warn('[MA] sync status ação', error.message); });
+  }
 }
 function acaoTiming(a){
   const today = todayISO();
@@ -5003,6 +5058,86 @@ async function exportPlanoAcaoPDF(){
   }
 }
 
+function statusBadgeAtiv(st){
+  const s = st||'Não iniciado';
+  let cls = 'off';
+  if(s==='Concluído') cls = 'ok';
+  else if(s==='Em andamento') cls = 'w90';
+  else if(s==='Atrasado') cls = 'late';
+  else if(s==='Cancelado') cls = 'off';
+  return `<span class="badge ${cls}">${esc(s)}</span>`;
+}
+function renderAtividadesBlock(a){
+  const ats = listAtividadesAcao(a.id).sort((x,y)=>String(x.data_limite||'').localeCompare(String(y.data_limite||'')));
+  const rows = ats.map(t=>{
+    const nEv = (t.evidencias||[]).length;
+    return `<tr data-ativ-id="${t.id}">
+      <td style="font-size:12px">${esc(a.filial||'—')}</td>
+      <td style="font-size:12px;font-weight:600">${esc(t.descricao||'')}</td>
+      <td style="font-size:12px;white-space:nowrap">${fmtDateISO(t.data_limite)}</td>
+      <td style="font-size:12px">${statusBadgeAtiv(t.status)}${nEv?` <span title="${nEv} evidência(s)">📎${nEv}</span>`:''}</td>
+      <td style="white-space:nowrap">
+        ${isAdmin?`<button type="button" class="btn-ma ghost" style="padding:4px 8px;font-size:11px" onclick="toggleAtivEditor('${a.id}','${t.id}')">Editar</button>
+        <button type="button" class="btn-ma danger" style="padding:4px 8px;font-size:11px" onclick="deleteAtividade('${a.id}','${t.id}')">Excluir</button>`:'—'}
+      </td>
+    </tr>
+    <tr id="ativ-edit-${t.id}" style="display:none"><td colspan="5">${buildAtivFormHtml(a, t)}</td></tr>`;
+  }).join('') || `<tr><td colspan="5" style="font-size:12px;color:var(--muted);padding:10px">Nenhuma atividade cadastrada.</td></tr>`;
+  const formNova = isAdmin ? `
+    <div class="timeline-compose admin-only" style="display:block;margin-top:10px" id="ativ-nova-wrap-${a.id}">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">+ Nova atividade</div>
+      ${buildAtivFormHtml(a, null)}
+    </div>` : '';
+  return `
+    <div class="timeline" style="margin-top:10px">
+      <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">Atividades da ação</div>
+      <div class="table-wrap" style="max-height:none">
+        <table class="data" style="font-size:12px">
+          <thead><tr>
+            <th>Filial</th><th>Descrição</th><th>Prazo</th><th>Status</th><th style="width:140px">Ações</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      ${formNova}
+    </div>`;
+}
+function buildAtivFormHtml(acao, ativ){
+  const id = ativ ? ativ.id : 'new_'+acao.id;
+  const isNew = !ativ;
+  const stOpts = ATIV_STATUS.map(s=>`<option value="${s}" ${(ativ?ativ.status:'Não iniciado')===s?'selected':''}>${s}</option>`).join('');
+  const evidList = (ativ && ativ.evidencias || []).map((e,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;font-size:11px;margin:3px 0">
+      <a href="#" onclick="event.preventDefault();openPlanoFile('${esc(e.path||'')}','${esc(e.nome||'')}')">📎 ${esc(e.nome||'arquivo')}</a>
+      ${isAdmin?`<button type="button" class="btn-ma danger" style="padding:2px 6px;font-size:10px" onclick="removeAtivEvidencia('${acao.id}','${ativ.id}',${i})">×</button>`:''}
+    </div>`).join('') || '<div style="font-size:11px;color:var(--muted)">Nenhuma evidência</div>';
+  return `
+    <div class="grid2m" style="margin-top:6px">
+      <div class="mf"><label>Descrição *</label><textarea id="ativ_desc_${id}" rows="2">${esc(ativ?ativ.descricao||'':'')}</textarea></div>
+      <div class="mf"><label>Responsável *</label><input id="ativ_resp_${id}" value="${esc(ativ?ativ.responsavel||acao.responsavel||'':'')}"></div>
+    </div>
+    <div class="grid2m">
+      <div class="mf"><label>Data de criação *</label><input type="date" id="ativ_criacao_${id}" value="${esc(ativ?ativ.data_criacao||todayISO():todayISO())}"></div>
+      <div class="mf"><label>Data limite *</label><input type="date" id="ativ_limite_${id}" value="${esc(ativ?ativ.data_limite||'':'')}"></div>
+    </div>
+    <div class="grid2m">
+      <div class="mf"><label>Status *</label><select id="ativ_status_${id}">${stOpts}</select></div>
+      <div class="mf"><label>Data de conclusão</label><input type="date" id="ativ_conclusao_${id}" value="${esc(ativ?ativ.data_conclusao||'':'')}"></div>
+    </div>
+    <div class="mf"><label>Evidências (PDF ou imagem)</label>
+      <input type="file" id="ativ_files_${id}" accept="application/pdf,image/*,.pdf" multiple style="font-size:12px">
+      <div id="ativ_evid_list_${id}" style="margin-top:4px">${evidList}</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button type="button" class="btn-ma gold" onclick="saveAtividade('${acao.id}','${isNew?'':ativ.id}')">${isNew?'Registrar atividade':'Salvar atividade'}</button>
+      ${!isNew?`<button type="button" class="btn-ma ghost" onclick="toggleAtivEditor('${acao.id}','${ativ.id}')">Cancelar</button>`:''}
+    </div>`;
+}
+function toggleAtivEditor(acaoId, ativId){
+  const el = document.getElementById('ativ-edit-'+ativId);
+  if(!el) return;
+  el.style.display = el.style.display==='none' ? 'table-row' : 'none';
+}
 function renderPlanoAcao(){
   loadLocalData();
   let list = DATA_LOCAL.acoes.slice();
@@ -5015,7 +5150,7 @@ function renderPlanoAcao(){
     <div class="kpi gold-edge"><div class="lbl">Ações</div><div class="val">${total}</div><div class="sub">no escopo atual</div></div>
     <div class="kpi ok-edge"><div class="lbl">Concluídas</div><div class="val">${concl}</div><div class="sub">${total?Math.round(100*concl/total):0}% do total</div></div>
     <div class="kpi ${atras?'crit-edge':'ok-edge'}"><div class="lbl">Em atraso</div><div class="val">${atras}</div><div class="sub">prazos vencidos</div></div>
-    <div class="kpi feat"><div class="lbl">Progresso médio</div><div class="val">${pctMed}%</div><div class="sub">microações concluídas</div></div>`;
+    <div class="kpi feat"><div class="lbl">Progresso médio</div><div class="val">${pctMed}%</div><div class="sub">atividades concluídas</div></div>`;
   const root = document.getElementById('planoacao-list');
   if(!list.length){
     root.innerHTML = '<div class="empty-state">Nenhuma ação cadastrada. Clique em “+ Nova ação”.</div>';
@@ -5024,32 +5159,6 @@ function renderPlanoAcao(){
   root.innerHTML = list.map(a=>{
     const prog = acaoProgress(a);
     const tim = acaoTiming(a);
-    const micros = (a.micros||[]).map(m=>`
-      <div class="micro">
-        <input type="checkbox" ${m.done?'checked':''} ${isAdmin?'':'disabled'} onchange="toggleMicro('${a.id}','${m.id}')">
-        <span style="${m.done?'text-decoration:line-through;opacity:.65':''}">${esc(m.text)}</span>
-      </div>`).join('') || '<div class="micro" style="color:var(--muted)">Sem microações</div>';
-    const movs = (DATA_LOCAL.movimentacoes[a.id] || []).slice().sort((x,y)=>String(y.data).localeCompare(String(x.data)));
-    const tl = movs.map(m=>{
-      const file = m.arquivo_nome
-        ? `<div class="tl-file"><a href="#" onclick="event.preventDefault();openPlanoFile('${esc(m.arquivo_path||m.arquivo_url||'')}','${esc(m.arquivo_nome)}')">📎 ${esc(m.arquivo_nome)}</a></div>`
-        : '';
-      return `<div class="timeline-item">
-        <div class="tl-date">${fmtDateISO(m.data)}</div>
-        <div class="tl-text">${esc(m.texto||'')}</div>
-        ${file}
-      </div>`;
-    }).join('') || '<div class="empty-state" style="padding:8px;font-size:12px">Nenhuma movimentação registrada.</div>';
-    const compose = isAdmin ? `
-      <div class="timeline-compose admin-only" style="display:block">
-        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:6px">Nova movimentação</div>
-        <div class="grid2m">
-          <div class="mf"><label>Data</label><input type="date" id="mov_data_${a.id}" value="${todayISO()}"></div>
-          <div class="mf"><label>PDF ou foto (opcional)</label><input type="file" id="mov_file_${a.id}" accept="application/pdf,image/*,.pdf" style="font-size:12px"></div>
-        </div>
-        <textarea id="mov_texto_${a.id}" placeholder="Descreva a movimentação / andamento…"></textarea>
-        <button type="button" class="btn-ma gold" style="margin-top:8px" onclick="addMovimentacao('${a.id}')">+ Registrar movimentação</button>
-      </div>` : '';
     return `<div class="action-card" id="acao-card-${a.id}">
       <div class="ac-head">
         <div class="ac-title">${esc(a.descricao)}</div>
@@ -5072,15 +5181,41 @@ function renderPlanoAcao(){
       ${a.como?`<div style="font-size:12px;color:var(--ink-2);margin:4px 0"><b>Como:</b> ${esc(a.como)}</div>`:''}
       <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:4px">${prog}% concluído</div>
       <div class="ac-prog"><span style="width:${prog}%"></span></div>
-      ${micros}
-      <div class="timeline">
-        <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px">Histórico de movimentações</div>
-        ${tl}
-        ${compose}
-        <button type="button" class="btn-ma primary admin-only-inline" style="margin-top:10px" onclick="salvarAlteracoesAcao('${a.id}')">Salvar alterações</button>
-      </div>
+      ${renderAtividadesBlock(a)}
     </div>`;
   }).join('');
+}
+async function loadAtividadesForAcoes(){
+  if(!sb || !currentUser) return;
+  try{
+    const { data, error } = await sb.from('plano_acao_atividades').select('*').order('data_limite',{ascending:true});
+    if(error){ console.warn('[MA] atividades', error.message); return; }
+    const map = {};
+    (data||[]).forEach(r=>{
+      const aid = r.acao_id;
+      if(!map[aid]) map[aid]=[];
+      map[aid].push({
+        id: r.id, acao_id: aid, descricao: r.descricao||'', responsavel: r.responsavel||'',
+        data_criacao: r.data_criacao||'', data_limite: r.data_limite||'',
+        data_conclusao: r.data_conclusao||null, status: r.status||'Não iniciado', evidencias: []
+      });
+    });
+    try{
+      const { data: arqs, error: e2 } = await sb.from('plano_acao_atividade_arquivos').select('*');
+      if(!e2 && arqs){
+        const byAtiv = {};
+        arqs.forEach(f=>{
+          if(!byAtiv[f.atividade_id]) byAtiv[f.atividade_id]=[];
+          byAtiv[f.atividade_id].push({ id:f.id, path:f.path, nome:f.nome, tipo:f.tipo });
+        });
+        Object.keys(map).forEach(aid=>{
+          map[aid].forEach(t=>{ t.evidencias = byAtiv[t.id]||[]; });
+        });
+      }
+    }catch(_e){}
+    DATA_LOCAL.atividades = map;
+    saveLocalData();
+  }catch(e){ console.warn(e); }
 }
 async function loadMovimentacoesForAcoes(){
   if(!sb || !currentUser) return;
@@ -5099,45 +5234,165 @@ async function loadMovimentacoesForAcoes(){
     });
   }catch(e){ console.warn(e); }
 }
-async function addMovimentacao(acaoId){
-  if(!isAdmin){ alert('Apenas administradores podem registrar movimentações.'); return; }
-  if(!sb || !currentUser){ alert('Faça login.'); return; }
-  const texto = (document.getElementById('mov_texto_'+acaoId)?.value||'').trim();
-  const data = document.getElementById('mov_data_'+acaoId)?.value || todayISO();
-  if(!texto){ alert('Descreva a movimentação.'); return; }
-  const fileEl = document.getElementById('mov_file_'+acaoId);
-  const file = fileEl && fileEl.files && fileEl.files[0];
-  let arquivo_url = null, arquivo_nome = null, arquivo_tipo = null;
-  try{
-    if(file){
-      const path = acaoId + '/' + Date.now() + '_' + file.name.replace(/[^\w.\-]+/g,'_');
-      const up = await uploadToBucket('plano-acao-docs', path, file);
-      arquivo_url = up.path;
-      arquivo_nome = up.nome;
-      arquivo_tipo = file.type && file.type.startsWith('image/') ? 'image' : 'pdf';
+async function migrateLegadoParaAtividades(){
+  loadLocalData();
+  if(!DATA_LOCAL.atividades) DATA_LOCAL.atividades = {};
+  let migrated = 0;
+  for(const a of (DATA_LOCAL.acoes||[])){
+    if(!DATA_LOCAL.atividades[a.id]) DATA_LOCAL.atividades[a.id]=[];
+    const existing = DATA_LOCAL.atividades[a.id];
+    for(const m of (a.micros||[])){
+      if(existing.some(t=>t._from==='micro' && t._srcId===m.id)) continue;
+      const row = {
+        id: uid(), acao_id: a.id, descricao: m.text||'Microação',
+        responsavel: a.responsavel||'', data_criacao: a.criacao||todayISO(),
+        data_limite: a.previsao||todayISO(),
+        data_conclusao: m.done ? (a.concluida||todayISO()) : null,
+        status: m.done ? 'Concluído' : 'Não iniciado', evidencias: [],
+        _from: 'micro', _srcId: m.id
+      };
+      existing.push(row); migrated++;
+      if(sb && currentUser){
+        try{
+          await sb.from('plano_acao_atividades').upsert({
+            id: row.id, acao_id: a.id, descricao: row.descricao, responsavel: row.responsavel,
+            data_criacao: row.data_criacao, data_limite: row.data_limite,
+            data_conclusao: row.data_conclusao, status: row.status, created_by: currentUser.id
+          });
+        }catch(_e){}
+      }
     }
-    const payload = {
-      id: uid(),
-      acao_id: acaoId,
-      data,
-      texto,
-      arquivo_url,
-      arquivo_nome,
-      arquivo_tipo,
-      created_by: currentUser.id
-    };
-    const { error } = await sb.from('plano_acao_movimentacoes').insert(payload);
-    if(error) throw error;
-    await loadMovimentacoesForAcoes();
+    for(const mov of (DATA_LOCAL.movimentacoes[a.id]||[])){
+      if(existing.some(t=>t._from==='mov' && t._srcId===mov.id)) continue;
+      const evidencias = mov.arquivo_nome ? [{ path: mov.arquivo_path||mov.arquivo_url, nome: mov.arquivo_nome, tipo: mov.arquivo_tipo||'' }] : [];
+      const row = {
+        id: uid(), acao_id: a.id, descricao: mov.texto||'Movimentação',
+        responsavel: a.responsavel||'', data_criacao: mov.data||todayISO(),
+        data_limite: a.previsao||mov.data||todayISO(), data_conclusao: null,
+        status: evidencias.length ? 'Em andamento' : 'Não iniciado', evidencias,
+        _from: 'mov', _srcId: mov.id
+      };
+      existing.push(row); migrated++;
+      if(sb && currentUser){
+        try{
+          await sb.from('plano_acao_atividades').upsert({
+            id: row.id, acao_id: a.id, descricao: row.descricao, responsavel: row.responsavel,
+            data_criacao: row.data_criacao, data_limite: row.data_limite,
+            data_conclusao: row.data_conclusao, status: row.status, created_by: currentUser.id
+          });
+          for(const ev of evidencias){
+            if(!ev.path) continue;
+            await sb.from('plano_acao_atividade_arquivos').insert({
+              id: uid(), atividade_id: row.id, path: ev.path, nome: ev.nome, tipo: ev.tipo
+            });
+          }
+        }catch(_e){}
+      }
+    }
+  }
+  if(migrated){ saveLocalData(); console.info('[MA] Migradas', migrated, 'itens legados para atividades'); }
+}
+async function saveAtividade(acaoId, ativId){
+  if(!isAdmin){ alert('Apenas administradores podem gerenciar atividades.'); return; }
+  loadLocalData();
+  const a = (DATA_LOCAL.acoes||[]).find(x=>x.id===acaoId);
+  if(!a){ alert('Ação não encontrada.'); return; }
+  const isNew = !ativId;
+  const formKey = isNew ? ('new_'+acaoId) : ativId;
+  const descricao = (document.getElementById('ativ_desc_'+formKey)?.value||'').trim();
+  const responsavel = (document.getElementById('ativ_resp_'+formKey)?.value||'').trim();
+  const data_criacao = document.getElementById('ativ_criacao_'+formKey)?.value || todayISO();
+  const data_limite = document.getElementById('ativ_limite_'+formKey)?.value || '';
+  const status = document.getElementById('ativ_status_'+formKey)?.value || 'Não iniciado';
+  let data_conclusao = document.getElementById('ativ_conclusao_'+formKey)?.value || null;
+  if(!descricao || !responsavel || !data_criacao || !data_limite){
+    alert('Preencha descrição, responsável, data de criação e data limite.'); return;
+  }
+  if(status==='Concluído' && !data_conclusao){
+    alert('Para status Concluído, informe a data de conclusão.'); return;
+  }
+  if(status!=='Concluído') data_conclusao = null;
+  if(a.previsao && data_limite > a.previsao){
+    alert('A data limite da atividade não pode ser posterior ao prazo da ação ('+fmtDateISO(a.previsao)+').'); return;
+  }
+  if(!DATA_LOCAL.atividades[acaoId]) DATA_LOCAL.atividades[acaoId]=[];
+  let row;
+  if(isNew){
+    row = { id: uid(), acao_id: acaoId, descricao, responsavel, data_criacao, data_limite, data_conclusao, status, evidencias: [] };
+    DATA_LOCAL.atividades[acaoId].push(row);
+  } else {
+    row = DATA_LOCAL.atividades[acaoId].find(x=>x.id===ativId);
+    if(!row){ alert('Atividade não encontrada.'); return; }
+    Object.assign(row, { descricao, responsavel, data_criacao, data_limite, data_conclusao, status });
+  }
+  const fileEl = document.getElementById('ativ_files_'+formKey);
+  const files = fileEl && fileEl.files ? [...fileEl.files] : [];
+  try{
+    if(sb && currentUser){
+      const payload = {
+        id: row.id, acao_id: acaoId, descricao: row.descricao, responsavel: row.responsavel,
+        data_criacao: row.data_criacao, data_limite: row.data_limite, data_conclusao: row.data_conclusao,
+        status: row.status, created_by: currentUser.id, updated_at: new Date().toISOString()
+      };
+      const { error } = await sb.from('plano_acao_atividades').upsert(payload);
+      if(error) throw error;
+      for(const file of files){
+        const path = acaoId + '/' + row.id + '/' + Date.now() + '_' + file.name.replace(/[^\w.\-]+/g,'_');
+        const up = await uploadToBucket('plano-acao-docs', path, file);
+        const tipo = file.type && file.type.startsWith('image/') ? 'image' : 'pdf';
+        const ev = { id: uid(), path: up.path, nome: up.nome||file.name, tipo };
+        const { error: e2 } = await sb.from('plano_acao_atividade_arquivos').insert({
+          id: ev.id, atividade_id: row.id, path: ev.path, nome: ev.nome, tipo: ev.tipo
+        });
+        if(e2) console.warn(e2);
+        else { if(!row.evidencias) row.evidencias=[]; row.evidencias.push(ev); }
+      }
+    } else if(files.length){
+      alert('Faça login para anexar evidências na nuvem.');
+    }
+    saveLocalData();
+    syncAcaoStatusFromAtividades(acaoId);
+    await loadAtividadesForAcoes();
     renderPlanoAcao();
   }catch(e){
     console.error(e);
-    alert('Erro ao registrar: '+(e.message||e));
+    alert('Erro ao salvar atividade: '+(e.message||e));
   }
+}
+async function deleteAtividade(acaoId, ativId){
+  if(!isAdmin){ alert('Apenas administradores podem excluir atividades.'); return; }
+  if(!confirm('Excluir esta atividade?')) return;
+  loadLocalData();
+  if(DATA_LOCAL.atividades[acaoId]){
+    DATA_LOCAL.atividades[acaoId] = DATA_LOCAL.atividades[acaoId].filter(x=>x.id!==ativId);
+  }
+  saveLocalData();
+  if(sb && currentUser){
+    try{
+      await sb.from('plano_acao_atividade_arquivos').delete().eq('atividade_id', ativId);
+      const { error } = await sb.from('plano_acao_atividades').delete().eq('id', ativId);
+      if(error) throw error;
+    }catch(e){ console.error(e); alert('Erro ao excluir: '+(e.message||e)); }
+  }
+  syncAcaoStatusFromAtividades(acaoId);
+  renderPlanoAcao();
+}
+async function removeAtivEvidencia(acaoId, ativId, idx){
+  if(!isAdmin) return;
+  loadLocalData();
+  const row = (DATA_LOCAL.atividades[acaoId]||[]).find(x=>x.id===ativId);
+  if(!row || !row.evidencias || !row.evidencias[idx]) return;
+  const ev = row.evidencias[idx];
+  row.evidencias.splice(idx,1);
+  saveLocalData();
+  if(sb && currentUser && ev.id){
+    try{ await sb.from('plano_acao_atividade_arquivos').delete().eq('id', ev.id); }catch(_e){}
+  }
+  renderPlanoAcao();
+  setTimeout(()=>toggleAtivEditor(acaoId, ativId), 50);
 }
 async function salvarAlteracoesAcao(acaoId){
   if(!isAdmin){ alert('Apenas administradores podem salvar alterações.'); return; }
-  // re-upsert ação (microações já salvas no toggle) + garantir sync
   loadLocalData();
   const a = DATA_LOCAL.acoes.find(x=>x.id===acaoId);
   if(!a){ alert('Ação não encontrada.'); return; }
@@ -5149,7 +5404,7 @@ async function salvarAlteracoesAcao(acaoId){
     });
     if(error){ alert('Erro: '+error.message); return; }
   }
-  await loadMovimentacoesForAcoes();
+  await loadAtividadesForAcoes();
   alert('Alterações salvas.');
   renderPlanoAcao();
 }
@@ -5390,10 +5645,11 @@ function renderInspForm(){
           </span>
         </div>
         <div class="pc-field">
-          <input value="${esc(f.titulo||'')}" oninput="inspDraft.fotos[${i}].titulo=this.value" placeholder="Nome da figura (ex.: Área interna - Entrada)">
+          <input value="${esc(f.titulo||'')}" maxlength="80" oninput="inspDraft.fotos[${i}].titulo=this.value.slice(0,80)" placeholder="Nome da figura (ex.: Pneus / Estopas)">
         </div>
         <div class="pc-field">
-          <textarea rows="2" oninput="inspDraft.fotos[${i}].descricao=this.value" placeholder="Descrição da figura">${esc(f.descricao||'')}</textarea>
+          <textarea rows="3" maxlength="280" oninput="inspDraft.fotos[${i}].descricao=this.value.slice(0,280); this.nextElementSibling && (this.nextElementSibling.textContent = (this.value.length||0)+'/280')" placeholder="Descrição da correção / adequação (máx. 280 caracteres)">${esc(f.descricao||'')}</textarea>
+          <div style="font-size:10px;color:var(--muted);text-align:right;margin-top:2px">${(f.descricao||'').length}/280</div>
         </div>
       </div>
     </div>`).join('');
@@ -5426,11 +5682,7 @@ function renderInspForm(){
       <div style="font-size:12px;color:var(--muted);margin-top:4px">JPG, PNG · várias imagens</div>
     </div>
     <div class="photo-grid">${fotosHtml || '<div class="empty-state" style="padding:16px;grid-column:1/-1">Nenhuma foto adicionada</div>'}</div>
-    <div class="section-label">Adequações identificadas</div>
-    <p class="panel-sub" style="margin-top:-6px">No relatório, cada foto gera <b>Figura N — nome</b> e <b>Descrição</b>. Use o campo abaixo só para itens extras.</p>
-    <div class="mf"><label>Itens extras (opcional · uma por linha)</label>
-      <textarea id="insp_adequacoes" style="min-height:100px">${esc((d.adequacoes||[]).join('\\n'))}</textarea>
-    </div>
+    <p class="panel-sub" style="margin:8px 0 4px">Cada foto gera <b>Figura N — nome</b> e <b>Descrição</b> no relatório. Preencha o nome e a descrição em cada foto acima (máx. 280 caracteres na descrição).</p>
     <div class="mf"><label>Conclusão</label><textarea id="insp_conclusao">${esc(d.conclusao||'')}</textarea></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:14px">
       <button type="button" class="btn-ma primary" onclick="saveInspecao()">Salvar inspeção</button>
@@ -5501,7 +5753,12 @@ function collectInspForm(){
   inspDraft.objetivo = document.getElementById('insp_objetivo').value||'';
   inspDraft.servico = document.getElementById('insp_servico').value||'';
   inspDraft.conclusao = document.getElementById('insp_conclusao').value||'';
-  inspDraft.adequacoes = (document.getElementById('insp_adequacoes').value||'').split('\n').map(s=>s.trim()).filter(Boolean);
+  if(!Array.isArray(inspDraft.adequacoes)) inspDraft.adequacoes = [];
+  (inspDraft.fotos||[]).forEach(f=>{
+    if(!f) return;
+    if(typeof f.titulo==='string' && f.titulo.length>80) f.titulo = f.titulo.slice(0,80);
+    if(typeof f.descricao==='string' && f.descricao.length>280) f.descricao = f.descricao.slice(0,280);
+  });
   return inspDraft;
 }
 function dataUrlToFile(dataUrl, filename){
@@ -5705,29 +5962,28 @@ function buildInspecaoReportElement(d){
   if(!fotos.length){
     fotosHtml = '<p style="color:#555;margin:4px 0 8px;font-size:12px">Sem fotos anexadas.</p>';
   } else {
-    // Cada FOTO (imagem+legenda) em bloco inseparável.
-    // Descrição longa pode quebrar depois da imagem.
-    // 2 colunas via tabela; page-break-inside:avoid no wrap da IMAGEM.
+    // Cada FOTO (imagem + figura + descrição) em bloco inseparável.
+    // 2 colunas; page-break-inside:avoid no bloco inteiro da foto para não cortar imagem ao meio.
     const cells = fotos.map((f,idx)=>{
       const src = f.dataUrl || '';
-      const desc = (f.descricao||'').trim();
+      let desc = (f.descricao||'').trim();
+      if(desc.length > 280) desc = desc.slice(0,280);
       const nome = (f.titulo || f.legenda || '').trim();
-      return `<td style="width:50%;vertical-align:top;padding:0 5px 12px;box-sizing:border-box">
-        <div class="insp-photo-block" style="page-break-inside:avoid;break-inside:avoid">
-          <div class="insp-photo-img-wrap" style="width:100%;height:5.6cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:1px solid #e5e5e5;page-break-inside:avoid;break-inside:avoid">
+      return `<td style="width:50%;vertical-align:top;padding:0 6px 14px;box-sizing:border-box">
+        <div class="insp-photo-block" style="page-break-inside:avoid;break-inside:avoid;-webkit-column-break-inside:avoid;page-break-after:auto">
+          <div class="insp-photo-img-wrap" style="width:100%;height:5.2cm;margin:0 auto;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fff;border:1px solid #e5e5e5">
             <img src="${src}" crossorigin="anonymous" style="max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;border:0"/>
           </div>
-          <div style="font-style:italic;font-size:11px;margin-top:4px;text-align:center;page-break-inside:avoid"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</div>
+          <div style="font-style:italic;font-size:10.5px;margin-top:4px;text-align:center;line-height:1.3"><b>Figura ${idx+1}</b>${nome ? ': '+esc(nome) : ''}</div>
+          ${desc ? `<div style="margin-top:4px;font-size:10px;color:#222;text-align:justify;line-height:1.35;word-wrap:break-word;overflow-wrap:anywhere;hyphens:auto;max-width:100%"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
         </div>
-        ${desc ? `<div style="margin-top:3px;font-size:10.5px;color:#333;text-align:left;line-height:1.35;word-wrap:break-word;overflow-wrap:anywhere"><b>Descrição:</b> ${esc(desc)}</div>` : ''}
       </td>`;
     });
     let rows = '';
     for(let i=0;i<cells.length;i+=2){
       const a = cells[i];
-      const b = cells[i+1] || '<td style="width:50%;padding:0 5px"></td>';
-      // Cada linha de fotos evita quebra no MEIO das imagens
-      rows += `<div class="insp-photo-row" style="page-break-inside:avoid;break-inside:avoid;margin:0 0 6px">
+      const b = cells[i+1] || '<td style="width:50%;padding:0 6px"></td>';
+      rows += `<div class="insp-photo-row" style="page-break-inside:avoid;break-inside:avoid;-webkit-column-break-inside:avoid;margin:0 0 4px">
         <table style="width:100%;border-collapse:collapse;table-layout:fixed"><tr>${a}${b}</tr></table>
       </div>`;
     }
@@ -5785,9 +6041,9 @@ function buildInspecaoReportElement(d){
     <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:8px 0 5px">FOTOS RELATÓRIO</div>
     ${fotosHtml}
 
-    <div style="page-break-before:auto;margin-top:18px">
+    <div class="insp-conclusao-block" style="page-break-before:auto;page-break-inside:avoid;break-inside:avoid;margin-top:18px">
       <div style="background:#EB0A1E;color:#fff;font-weight:800;font-size:12px;padding:7px 10px;margin:0">CONCLUSÃO</div>
-      <div style="border:1px solid #999;padding:12px 14px;min-height:60px;font-size:12px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word">${esc(d.conclusao||'—')}</div>
+      <div style="border:1px solid #999;padding:12px 14px;min-height:60px;font-size:12px;line-height:1.55;white-space:pre-wrap;word-wrap:break-word;text-align:justify">${esc(d.conclusao||'—')}</div>
       <div style="margin-top:22px;margin-bottom:8px;text-align:center;font-size:11px;color:#222;page-break-inside:avoid;break-inside:avoid">
         <div style="margin-bottom:18px">${esc(d.cidade||'Cidade não informada')}, ${esc(d.data ? new Date(d.data+'T12:00:00').toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'))}</div>
         ${d.assinatura ? `<div style="height:52px;display:flex;align-items:center;justify-content:center;margin:0 auto 4px"><img src="${d.assinatura}" style="max-width:210px;max-height:50px;object-fit:contain"></div>` : '<div style="height:52px"></div>'}
@@ -5875,7 +6131,7 @@ async function printInspecao(){
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: {
         mode: ['css', 'legacy'],
-        avoid: ['.insp-photo-row', '.insp-photo-block', '.insp-photo-img-wrap', 'img']
+        avoid: ['.insp-photo-row', '.insp-photo-block', '.insp-photo-img-wrap', '.insp-conclusao-block', 'img', 'table']
       }
     };
 
@@ -5951,19 +6207,26 @@ async function loadAdminProfile(){
   if(!sb || !currentUser) return false;
   try{
     const { data, error } = await sb.from('perfis').select('is_admin').eq('user_id', currentUser.id).maybeSingle();
-    if(!error && data && data.is_admin){
+    if(error){
+      if(/infinite recursion|relation|does not exist|schema cache/i.test(error.message||'')){
+        console.warn('[MA] perfis policy/tabela com problema — fallback admin para não bloquear', error.message);
+        isAdmin = true;
+        document.body.classList.add('is-admin');
+      } else {
+        console.warn('[MA] perfis', error);
+      }
+    } else if(data && data.is_admin){
       isAdmin = true;
       document.body.classList.add('is-admin');
     }
   }catch(e){ console.warn('[MA] perfis', e); }
-  // fallback: se tabela não existir, permite upload (evita bloquear operação)
   if(!isAdmin){
     try{
       const { error } = await sb.from('perfis').select('user_id').limit(1);
-      if(error && /relation|does not exist|schema cache/i.test(error.message||'')){
+      if(error && /relation|does not exist|schema cache|infinite recursion/i.test(error.message||'')){
         isAdmin = true;
         document.body.classList.add('is-admin');
-        console.warn('[MA] Tabela perfis ausente — tratando como admin para não bloquear uploads');
+        console.warn('[MA] Tabela/policy perfis com problema — tratando como admin para não bloquear uploads');
       }
     }catch(_e){}
   }
